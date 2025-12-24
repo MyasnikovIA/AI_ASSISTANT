@@ -91,16 +91,47 @@ public class Main {
     }
 
     private static void askQuestion(Scanner scanner, AssistantService assistant) {
-        System.out.print("\nВведите ваш вопрос: ");
-        String question = scanner.nextLine().trim();
+        System.out.println("\n=== Задать вопрос ассистенту ===");
+        System.out.println("Введите ваш вопрос (можно многострочный):");
+        System.out.println("Для завершения введите 'end' на отдельной строке");
+        System.out.println("=".repeat(50));
 
-        if (question.isEmpty()) {
+        StringBuilder question = new StringBuilder();
+        String line;
+        int lineCount = 0;
+
+        while (true) {
+            line = scanner.nextLine();
+
+            if (line.trim().equalsIgnoreCase("end")) {
+                break;
+            }
+
+            if (lineCount == 0 && line.trim().isEmpty()) {
+                System.out.println("Вопрос не может начинаться с пустой строки. Продолжайте ввод...");
+                continue;
+            }
+
+            question.append(line);
+
+            // Если это не последняя строка, добавляем перенос
+            if (!line.trim().equalsIgnoreCase("end")) {
+                question.append("\n");
+            }
+
+            lineCount++;
+        }
+
+        String finalQuestion = question.toString().trim();
+
+        if (finalQuestion.isEmpty()) {
             System.out.println("Вопрос не может быть пустым.");
             return;
         }
 
         System.out.println("\n" + "=".repeat(60));
-        String answer = assistant.askQuestion(question);
+        System.out.println("Отправка запроса...");
+        String answer = assistant.askQuestion(finalQuestion);
         System.out.println("\n" + "=".repeat(60));
         System.out.println("\n✓ Ответ получен и сохранен в истории");
     }
@@ -114,18 +145,20 @@ public class Main {
             source = "пользовательский ввод";
         }
 
-        System.out.println("Введите текст для добавления в базу знаний:");
-        System.out.println("(Для завершения введите 'END' на отдельной строке)");
+        System.out.println("\nВведите текст для добавления в базу знаний:");
+        System.out.println("Для завершения введите 'end' на отдельной строке");
+        System.out.println("=".repeat(50));
 
         StringBuilder content = new StringBuilder();
         String line;
 
-        while (!(line = scanner.nextLine()).equals("END")) {
+        while (!(line = scanner.nextLine()).equalsIgnoreCase("end")) {
             content.append(line).append("\n");
         }
 
-        if (content.length() > 0) {
-            assistant.addKnowledge(content.toString().trim(), source);
+        String finalContent = content.toString().trim();
+        if (finalContent.length() > 0) {
+            assistant.addKnowledge(finalContent, source);
             System.out.println("✓ Знания успешно добавлены и сохранены в файл");
         } else {
             System.out.println("Текст не был введен.");
