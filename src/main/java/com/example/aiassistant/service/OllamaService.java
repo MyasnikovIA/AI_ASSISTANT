@@ -198,6 +198,133 @@ public class OllamaService {
         return models;
     }
 
+    // Новый метод для загрузки модели
+    public boolean pullModel(String modelName) {
+        try {
+            System.out.println("Загрузка модели: " + modelName);
+
+            JSONObject requestJson = new JSONObject();
+            requestJson.put("name", modelName);
+            requestJson.put("stream", false);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(ollamaHost + "/api/pull"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestJson.toString()))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            if (response.statusCode() == 200) {
+                System.out.println("Модель " + modelName + " успешно загружена");
+                return true;
+            } else {
+                System.err.println("Ошибка загрузки модели: " + response.statusCode());
+                return false;
+            }
+
+        } catch (Exception e) {
+            System.err.println("Ошибка загрузки модели: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // Новый метод для удаления модели
+    public boolean deleteModel(String modelName) {
+        try {
+            JSONObject requestJson = new JSONObject();
+            requestJson.put("name", modelName);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(ollamaHost + "/api/delete"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestJson.toString()))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            if (response.statusCode() == 200) {
+                System.out.println("Модель " + modelName + " успешно удалена");
+                return true;
+            } else {
+                System.err.println("Ошибка удаления модели: " + response.statusCode());
+                return false;
+            }
+
+        } catch (Exception e) {
+            System.err.println("Ошибка удаления модели: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // Новый метод для получения информации о модели
+    public JSONObject getModelInfo(String modelName) {
+        try {
+            JSONObject requestJson = new JSONObject();
+            requestJson.put("name", modelName);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(ollamaHost + "/api/show"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestJson.toString()))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            if (response.statusCode() == 200) {
+                return new JSONObject(response.body());
+            } else {
+                System.err.println("Ошибка получения информации о модели: " + response.statusCode());
+                return null;
+            }
+
+        } catch (Exception e) {
+            System.err.println("Ошибка получения информации о модели: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // Новый метод для копирования модели
+    public boolean copyModel(String sourceModel, String targetModel) {
+        try {
+            JSONObject requestJson = new JSONObject();
+            requestJson.put("source", sourceModel);
+            requestJson.put("destination", targetModel);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(ollamaHost + "/api/copy"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestJson.toString()))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            if (response.statusCode() == 200) {
+                System.out.println("Модель успешно скопирована: " + sourceModel + " -> " + targetModel);
+                return true;
+            } else {
+                System.err.println("Ошибка копирования модели: " + response.statusCode());
+                return false;
+            }
+
+        } catch (Exception e) {
+            System.err.println("Ошибка копирования модели: " + e.getMessage());
+            return false;
+        }
+    }
+
     public void setModel(String modelName) {
         this.modelName = modelName;
     }

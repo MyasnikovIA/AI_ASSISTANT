@@ -32,23 +32,7 @@ public class RAGService {
         Отвечай точно, информативно и учитывай контекст всего диалога.
         
         Ответ:""";
-    /*
-    Используй следующую информацию из базы знаний для ответа на вопрос.
-    Если в предоставленной информации есть ответ - используй её.
-    Если информации недостаточно - используй свои знания и укажи это.
 
-    История предыдущего диалога:
-    {history}
-
-    Информация из базы знаний:
-    {context}
-
-    Вопрос: {query}
-
-    Ответ:
-
-
-     */
     public RAGService(VectorDBService vectorDB,
                       EmbeddingService embeddingService,
                       OllamaService ollamaService) {
@@ -61,6 +45,7 @@ public class RAGService {
     // Основной метод получения ответа с RAG и историей
     public String getAnswerWithRAGAndHistory(String question, List<ChatMessage> chatHistory, boolean speechEnabled) {
         System.out.println("\n[Поиск релевантной информации в базе знаний...]");
+        System.out.println("Модель для эмбеддингов: " + embeddingService.getEmbeddingModel());
 
         // Получаем эмбеддинг вопроса
         double[] queryEmbedding = embeddingService.getEmbedding(question);
@@ -91,6 +76,7 @@ public class RAGService {
 
         // Отправляем запрос к LLM с потоковой передачей
         System.out.println("\n[Генерация ответа...]");
+        System.out.println("Модель для ответов: " + ollamaService.getModel());
         System.out.println("-".repeat(50));
 
         StringBuilder fullResponse = new StringBuilder();
@@ -177,6 +163,7 @@ public class RAGService {
     // Добавление новых знаний с сохранением в файл
     public void addKnowledge(String content, String source) {
         System.out.println("\n[Добавление новых знаний в базу...]");
+        System.out.println("Используемая модель для эмбеддингов: " + embeddingService.getEmbeddingModel());
 
         // Создаем документ
         KnowledgeDocument document = new KnowledgeDocument(content, source);

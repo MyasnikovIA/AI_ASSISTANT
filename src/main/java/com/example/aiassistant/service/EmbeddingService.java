@@ -73,6 +73,72 @@ public class EmbeddingService {
         }
     }
 
+    // Новый метод для получения списка моделей, поддерживающих эмбеддинги
+    public List<String> getAvailableEmbeddingModels() {
+        List<String> models = new ArrayList<>();
+
+        try {
+            // Сначала получаем все доступные модели
+            OllamaService ollamaService = new OllamaService(ollamaHost, "");
+            List<String> allModels = ollamaService.getAvailableModels();
+
+            // Фильтруем модели, которые поддерживают эмбеддинги
+            // (это эвристический подход, можно улучшить)
+            for (String model : allModels) {
+                if (model.toLowerCase().contains("embed") ||
+                        model.toLowerCase().contains("all-minilm") ||
+                        model.toLowerCase().contains("nomic") ||
+                        model.toLowerCase().contains("mxbai")) {
+                    models.add(model);
+                }
+            }
+
+            // Добавляем популярные модели для эмбеддингов
+            if (!models.contains("all-minilm:22m")) {
+                models.add(0, "all-minilm:22m"); // Добавляем как рекомендуемую
+            }
+
+        } catch (Exception e) {
+            System.err.println("Ошибка получения списка моделей для эмбеддингов: " + e.getMessage());
+        }
+
+        return models;
+    }
+
+    // Новый метод для проверки поддержки эмбеддингов моделью
+    public boolean checkEmbeddingSupport(String modelName) {
+        try {
+            // Пытаемся получить эмбеддинг для тестового текста
+            double[] embedding = getEmbeddingForModel(modelName, "test");
+            return embedding != null && embedding.length > 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // Новый метод для получения эмбеддинга от конкретной модели
+    public double[] getEmbeddingForModel(String modelName, String text) {
+        try {
+            // Сохраняем текущую модель
+            String originalModel = this.embeddingModel;
+
+            // Временно меняем модель
+            this.embeddingModel = modelName;
+
+            // Получаем эмбеддинг
+            double[] embedding = getEmbedding(text);
+
+            // Восстанавливаем оригинальную модель
+            this.embeddingModel = originalModel;
+
+            return embedding;
+
+        } catch (Exception e) {
+            System.err.println("Ошибка получения эмбеддинга от модели " + modelName + ": " + e.getMessage());
+            return null;
+        }
+    }
+
     private double[] createSimpleEmbedding(String text) {
         // Простой метод создания эмбеддинга на основе хэша
         // Используется только при недоступности OLLAMA
@@ -102,6 +168,7 @@ public class EmbeddingService {
 
     public void setEmbeddingModel(String modelName) {
         this.embeddingModel = modelName;
+        System.out.println("Модель для эмбеддингов изменена на: " + modelName);
     }
 
     public String getEmbeddingModel() {

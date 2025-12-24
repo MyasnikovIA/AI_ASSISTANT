@@ -5,9 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1204a681-f122-49f0-91de-28eed4899d82" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/lib/jsoup-1.15.4.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/chat_history.bin" beforeDir="false" afterPath="$PROJECT_DIR$/chat_history.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/aiassistant/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/aiassistant/Main.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/aiassistant/service/AssistantService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/aiassistant/service/AssistantService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/aiassistant/service/EmbeddingService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/aiassistant/service/EmbeddingService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/aiassistant/service/OllamaService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/aiassistant/service/OllamaService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/aiassistant/service/RAGService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/aiassistant/service/RAGService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,11 +31,16 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Application.Main.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "main",
     "last_opened_file_path": "C:/JavaProjects/aiassistant/lib",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "vue.rearranger.settings.migration": "true"
   }
@@ -76,7 +85,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1766572545176</updated>
-      <workItem from="1766572546754" duration="151000" />
+      <workItem from="1766572546754" duration="1984000" />
     </task>
     <servers />
   </component>

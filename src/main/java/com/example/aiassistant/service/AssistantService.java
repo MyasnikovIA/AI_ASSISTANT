@@ -10,6 +10,7 @@ import java.util.List;
 public class AssistantService {
     private final RAGService ragService;
     private final OllamaService ollamaService;
+    private final EmbeddingService embeddingService;
     private final List<ChatMessage> chatHistory;
     private final ChatHistoryService chatHistoryService;
     private final SpeakToText speakToText;
@@ -22,10 +23,7 @@ public class AssistantService {
 
     public AssistantService(VectorDBService vectorDB) {
         // Инициализация сервисов
-        EmbeddingService embeddingService = new EmbeddingService(
-                OLLAMA_HOST, DEFAULT_EMBEDDING_MODEL
-        );
-
+        this.embeddingService = new EmbeddingService(OLLAMA_HOST, DEFAULT_EMBEDDING_MODEL);
         this.ollamaService = new OllamaService(OLLAMA_HOST, DEFAULT_MODEL);
         this.ragService = new RAGService(vectorDB, embeddingService, ollamaService);
         this.chatHistory = new ArrayList<>();
@@ -58,6 +56,7 @@ public class AssistantService {
     // Основной метод для вопросов с учетом истории и озвучкой
     public String askQuestion(String question) {
         System.out.println("\n=== Вопрос: " + question + " ===");
+        System.out.println("Используемая модель: " + getCurrentModel());
 
         // Добавляем вопрос в историю
         ChatMessage userMsg = new ChatMessage(ChatMessage.Role.USER, question);
@@ -131,14 +130,14 @@ public class AssistantService {
         ragService.addKnowledge(content, source);
     }
 
-    // Смена модели
+    // Смена модели для ответов
     public boolean switchModel(String modelName) {
         try {
             List<String> availableModels = ollamaService.getAvailableModels();
 
             if (availableModels.contains(modelName)) {
                 ollamaService.setModel(modelName);
-                System.out.println("Модель изменена на: " + modelName);
+                System.out.println("Модель для ответов изменена на: " + modelName);
                 return true;
             } else {
                 System.out.println("Модель не найдена. Доступные модели:");
@@ -153,13 +152,42 @@ public class AssistantService {
         }
     }
 
+    // Смена модели для эмбеддингов
+    public boolean switchEmbeddingModel(String modelName) {
+        try {
+            // Проверяем поддержку эмбеддингов
+            if (embeddingService.checkEmbeddingSupport(modelName)) {
+                embeddingService.setEmbeddingModel(modelName);
+                System.out.println("Модель для эмбеддингов изменена на: " + modelName);
+                return true;
+            } else {
+                System.out.println("Модель не поддерживает эмбеддинги или недоступна");
+
+                // Предлагаем доступные модели
+                var embeddingModels = embeddingService.getAvailableEmbeddingModels();
+                if (!embeddingModels.isEmpty()) {
+                    System.out.println("Доступные модели для эмбеддингов:");
+                    for (String model : embeddingModels) {
+                        System.out.println("  - " + model);
+                    }
+                }
+
+                return false;
+            }
+        } catch (Exception e) {
+            System.err.println("Ошибка смены модели для эмбеддингов: " + e.getMessage());
+            return false;
+        }
+    }
+
     // Получение статистики
     public JSONObject getStatistics() {
         JSONObject stats = ragService.getStatistics();
 
         // Добавляем информацию о чате
         stats.put("chat_history_size", chatHistory.size() - 1); // Без системного
-        stats.put("current_model", getCurrentModel());
+        stats.put("llm_model", getCurrentModel());
+        stats.put("embedding_model", getEmbeddingModel());
         stats.put("speech_enabled", speechEnabled);
 
         return stats;
@@ -193,8 +221,38 @@ public class AssistantService {
         return ollamaService.getModel();
     }
 
+    public String getEmbeddingModel() {
+        return embeddingService.getEmbeddingModel();
+    }
+
     public List<ChatMessage> getChatHistory() {
         return new ArrayList<>(chatHistory);
+    }
+
+    // Новые методы для управления моделями
+
+    public List<String> getAvailableModels() {
+        return ollamaService.getAvailableModels();
+    }
+
+    public List<String> getAvailableEmbeddingModels() {
+        return embeddingService.getAvailableEmbeddingModels();
+    }
+
+    public boolean pullModel(String modelName) {
+        return ollamaService.pullModel(modelName);
+    }
+
+    public boolean deleteModel(String modelName) {
+        return ollamaService.deleteModel(modelName);
+    }
+
+    public boolean copyModel(String sourceModel, String targetModel) {
+        return ollamaService.copyModel(sourceModel, targetModel);
+    }
+
+    public JSONObject getModelInfo(String modelName) {
+        return ollamaService.getModelInfo(modelName);
     }
 
     // Очистка истории чата

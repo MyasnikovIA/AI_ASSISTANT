@@ -20,6 +20,7 @@ public class Main {
             System.out.println("✓ База знаний загружена в память");
             System.out.println("✓ Документов в базе: " + vectorDB.getDocumentCount());
             System.out.println("✓ Текущая модель: " + assistant.getCurrentModel());
+            System.out.println("✓ Модель для эмбеддингов: " + assistant.getEmbeddingModel());
             System.out.println("✓ История чата загружена");
             System.out.println("✓ Озвучка: " + (assistant.isSpeechEnabled() ? "ВКЛ" : "ВЫКЛ"));
             System.out.println("✓ Доступно памяти для RAG: ~70 ГБ");
@@ -34,7 +35,7 @@ public class Main {
             boolean running = true;
             while (running) {
                 printMenu();
-                System.out.print("Выберите действие (1-8): ");
+                System.out.print("Выберите действие (1-12): ");
 
                 String choice = scanner.nextLine().trim();
 
@@ -61,6 +62,18 @@ public class Main {
                         clearChatHistory(scanner, assistant);
                         break;
                     case "8":
+                        manageModels(scanner, assistant);
+                        break;
+                    case "9":
+                        changeEmbeddingModel(scanner, assistant);
+                        break;
+                    case "10":
+                        listAllModels(scanner, assistant);
+                        break;
+                    case "11":
+                        pullNewModel(scanner, assistant);
+                        break;
+                    case "12":
                         System.out.println("\nВыход из программы...");
                         running = false;
                         break;
@@ -82,16 +95,21 @@ public class Main {
         System.out.println("1. Задать вопрос ассистенту (с историей и потоковым выводом)");
         System.out.println("2. Добавить новые знания в базу");
         System.out.println("3. Показать статистику");
-        System.out.println("4. Сменить модель LLM");
+        System.out.println("4. Сменить модель LLM для ответов");
         System.out.println("5. Поиск в базе знаний");
         System.out.println("6. Включить/выключить озвучку");
         System.out.println("7. Очистить историю чата");
-        System.out.println("8. Выход");
+        System.out.println("8. Управление моделями");
+        System.out.println("9. Сменить модель для эмбеддингов");
+        System.out.println("10. Показать все доступные модели");
+        System.out.println("11. Загрузить новую модель");
+        System.out.println("12. Выход");
         System.out.println("=".repeat(30));
     }
 
     private static void askQuestion(Scanner scanner, AssistantService assistant) {
         System.out.println("\n=== Задать вопрос ассистенту ===");
+        System.out.println("Текущая модель: " + assistant.getCurrentModel());
         System.out.println("Введите ваш вопрос (можно многострочный):");
         System.out.println("Для завершения введите 'end' на отдельной строке");
         System.out.println("=".repeat(50));
@@ -138,6 +156,7 @@ public class Main {
 
     private static void addKnowledge(Scanner scanner, AssistantService assistant) {
         System.out.println("\n=== Добавление новых знаний ===");
+        System.out.println("Текущая модель для эмбеддингов: " + assistant.getEmbeddingModel());
         System.out.print("Введите источник знаний (например, 'книга', 'статья', 'личный опыт'): ");
         String source = scanner.nextLine().trim();
 
@@ -193,18 +212,49 @@ public class Main {
     }
 
     private static void changeModel(Scanner scanner, AssistantService assistant) {
-        System.out.println("\n=== Смена модели ===");
+        System.out.println("\n=== Смена модели для ответов ===");
         System.out.println("Текущая модель: " + assistant.getCurrentModel());
-        System.out.print("Введите название новой модели: ");
 
-        String newModel = scanner.nextLine().trim();
+        System.out.println("\nДоступные модели для ответов:");
+        var models = assistant.getAvailableModels();
+        if (models.isEmpty()) {
+            System.out.println("Не удалось получить список моделей");
+            return;
+        }
 
-        if (!newModel.isEmpty()) {
-            if (assistant.switchModel(newModel)) {
-                System.out.println("✓ Модель успешно изменена");
-            } else {
-                System.out.println("✗ Не удалось изменить модель");
+        for (int i = 0; i < models.size(); i++) {
+            System.out.println((i + 1) + ". " + models.get(i));
+        }
+
+        System.out.print("\nВведите номер модели или название новой модели: ");
+        String input = scanner.nextLine().trim();
+
+        if (input.isEmpty()) {
+            System.out.println("Операция отменена");
+            return;
+        }
+
+        // Проверяем, ввели ли номер
+        try {
+            int index = Integer.parseInt(input);
+            if (index >= 1 && index <= models.size()) {
+                String selectedModel = models.get(index - 1);
+                if (assistant.switchModel(selectedModel)) {
+                    System.out.println("✓ Модель успешно изменена на: " + selectedModel);
+                } else {
+                    System.out.println("✗ Не удалось изменить модель");
+                }
+                return;
             }
+        } catch (NumberFormatException e) {
+            // Не число, значит ввели название модели
+        }
+
+        // Если ввели название модели
+        if (assistant.switchModel(input)) {
+            System.out.println("✓ Модель успешно изменена на: " + input);
+        } else {
+            System.out.println("✗ Не удалось изменить модель");
         }
     }
 
@@ -242,6 +292,214 @@ public class Main {
             System.out.println("✓ История чата очищена");
         } else {
             System.out.println("Очистка отменена");
+        }
+    }
+
+    // Новый метод для управления моделями
+    private static void manageModels(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Управление моделями ===");
+        System.out.println("1. Показать информацию о текущей модели");
+        System.out.println("2. Удалить модель");
+        System.out.println("3. Скопировать модель");
+        System.out.println("4. Назад");
+
+        System.out.print("Выберите действие: ");
+        String choice = scanner.nextLine().trim();
+
+        switch (choice) {
+            case "1":
+                showModelInfo(scanner, assistant);
+                break;
+            case "2":
+                deleteModel(scanner, assistant);
+                break;
+            case "3":
+                copyModel(scanner, assistant);
+                break;
+            case "4":
+                return;
+            default:
+                System.out.println("Неверный выбор");
+        }
+    }
+
+    // Новый метод для смены модели эмбеддингов
+    private static void changeEmbeddingModel(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Смена модели для эмбеддингов ===");
+        System.out.println("Текущая модель: " + assistant.getEmbeddingModel());
+
+        var embeddingModels = assistant.getAvailableEmbeddingModels();
+        if (embeddingModels.isEmpty()) {
+            System.out.println("Не удалось получить список моделей для эмбеддингов");
+            return;
+        }
+
+        System.out.println("\nДоступные модели для эмбеддингов:");
+        for (int i = 0; i < embeddingModels.size(); i++) {
+            System.out.println((i + 1) + ". " + embeddingModels.get(i));
+        }
+
+        System.out.print("\nВведите номер модели или название новой модели: ");
+        String input = scanner.nextLine().trim();
+
+        if (input.isEmpty()) {
+            System.out.println("Операция отменена");
+            return;
+        }
+
+        // Проверяем, ввели ли номер
+        try {
+            int index = Integer.parseInt(input);
+            if (index >= 1 && index <= embeddingModels.size()) {
+                String selectedModel = embeddingModels.get(index - 1);
+                if (assistant.switchEmbeddingModel(selectedModel)) {
+                    System.out.println("✓ Модель для эмбеддингов успешно изменена на: " + selectedModel);
+                } else {
+                    System.out.println("✗ Не удалось изменить модель для эмбеддингов");
+                }
+                return;
+            }
+        } catch (NumberFormatException e) {
+            // Не число, значит ввели название модели
+        }
+
+        // Если ввели название модели
+        if (assistant.switchEmbeddingModel(input)) {
+            System.out.println("✓ Модель для эмбеддингов успешно изменена на: " + input);
+        } else {
+            System.out.println("✗ Не удалось изменить модель для эмбеддингов");
+        }
+    }
+
+    // Новый метод для отображения всех моделей
+    private static void listAllModels(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Все доступные модели ===");
+
+        var allModels = assistant.getAvailableModels();
+        var embeddingModels = assistant.getAvailableEmbeddingModels();
+
+        System.out.println("\nМодели для ответов (" + allModels.size() + "):");
+        for (int i = 0; i < allModels.size(); i++) {
+            String model = allModels.get(i);
+            String currentMarker = model.equals(assistant.getCurrentModel()) ? " [ТЕКУЩАЯ]" : "";
+            System.out.println((i + 1) + ". " + model + currentMarker);
+        }
+
+        System.out.println("\nМодели для эмбеддингов (" + embeddingModels.size() + "):");
+        for (int i = 0; i < embeddingModels.size(); i++) {
+            String model = embeddingModels.get(i);
+            String currentMarker = model.equals(assistant.getEmbeddingModel()) ? " [ТЕКУЩАЯ]" : "";
+            System.out.println((i + 1) + ". " + model + currentMarker);
+        }
+
+        System.out.println("\nНажмите Enter для продолжения...");
+        scanner.nextLine();
+    }
+
+    // Новый метод для загрузки новой модели
+    private static void pullNewModel(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Загрузка новой модели ===");
+
+        System.out.println("Примеры популярных моделей:");
+        System.out.println("- deepseek-coder:6.7b");
+        System.out.println("- llama2:7b");
+        System.out.println("- mistral:7b");
+        System.out.println("- codellama:7b");
+        System.out.println("- phi:2.7b");
+        System.out.println("- qwen:7b");
+
+        System.out.print("\nВведите название модели для загрузки (например, 'deepseek-coder:6.7b'): ");
+        String modelName = scanner.nextLine().trim();
+
+        if (modelName.isEmpty()) {
+            System.out.println("Операция отменена");
+            return;
+        }
+
+        System.out.println("Начинаю загрузку модели: " + modelName);
+        System.out.println("Это может занять несколько минут в зависимости от размера модели...");
+
+        if (assistant.pullModel(modelName)) {
+            System.out.println("✓ Модель успешно загружена: " + modelName);
+        } else {
+            System.out.println("✗ Не удалось загрузить модель");
+        }
+    }
+
+    // Новый метод для отображения информации о модели
+    private static void showModelInfo(Scanner scanner, AssistantService assistant) {
+        System.out.print("\nВведите название модели для просмотра информации (оставьте пустым для текущей): ");
+        String modelName = scanner.nextLine().trim();
+
+        if (modelName.isEmpty()) {
+            modelName = assistant.getCurrentModel();
+        }
+
+        var modelInfo = assistant.getModelInfo(modelName);
+        if (modelInfo != null) {
+            System.out.println("\n=== Информация о модели: " + modelName + " ===");
+            System.out.println("Размер модели: " + modelInfo.optString("size", "неизвестно"));
+            System.out.println("Квантование: " + modelInfo.optString("quantization", "неизвестно"));
+            System.out.println("Архитектура: " + modelInfo.optString("architecture", "неизвестно"));
+
+            if (modelInfo.has("parameters")) {
+                System.out.println("Параметры: " + modelInfo.getString("parameters"));
+            }
+
+            if (modelInfo.has("template")) {
+                System.out.println("Шаблон промпта: " + modelInfo.getString("template"));
+            }
+        } else {
+            System.out.println("Не удалось получить информацию о модели");
+        }
+    }
+
+    // Новый метод для удаления модели
+    private static void deleteModel(Scanner scanner, AssistantService assistant) {
+        System.out.print("\nВведите название модели для удаления: ");
+        String modelName = scanner.nextLine().trim();
+
+        if (modelName.isEmpty()) {
+            System.out.println("Операция отменена");
+            return;
+        }
+
+        System.out.print("Вы уверены, что хотите удалить модель '" + modelName + "'? (y/N): ");
+        String confirm = scanner.nextLine().trim();
+
+        if (confirm.equalsIgnoreCase("y") || confirm.equalsIgnoreCase("yes")) {
+            if (assistant.deleteModel(modelName)) {
+                System.out.println("✓ Модель успешно удалена: " + modelName);
+            } else {
+                System.out.println("✗ Не удалось удалить модель");
+            }
+        } else {
+            System.out.println("Удаление отменено");
+        }
+    }
+
+    // Новый метод для копирования модели
+    private static void copyModel(Scanner scanner, AssistantService assistant) {
+        System.out.print("\nВведите название исходной модели: ");
+        String sourceModel = scanner.nextLine().trim();
+
+        if (sourceModel.isEmpty()) {
+            System.out.println("Операция отменена");
+            return;
+        }
+
+        System.out.print("Введите название новой модели: ");
+        String targetModel = scanner.nextLine().trim();
+
+        if (targetModel.isEmpty()) {
+            System.out.println("Операция отменена");
+            return;
+        }
+
+        if (assistant.copyModel(sourceModel, targetModel)) {
+            System.out.println("✓ Модель успешно скопирована: " + sourceModel + " -> " + targetModel);
+        } else {
+            System.out.println("✗ Не удалось скопировать модель");
         }
     }
 
