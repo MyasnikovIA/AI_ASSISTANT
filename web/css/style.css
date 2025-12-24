@@ -1,0 +1,235 @@
+/* Основные стили */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f5f5f5;
+}
+
+/* Меню */
+.menu-link {
+    display: block;
+    padding: 8px 10px;
+    margin: 5px 0;
+    color: #333;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.menu-link:hover {
+    background-color: #e0e0e0;
+    color: #2d3e50;
+}
+
+/* Статус подключения */
+.status-connected {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.status-error {
+    color: #F44336;
+    font-weight: bold;
+}
+
+/* Сообщения в чате */
+#response-area {
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.message {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 5px;
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.user-message {
+    background-color: #e3f2fd;
+    border-left: 4px solid #2196F3;
+    margin-left: 20px;
+}
+
+.assistant-message {
+    background-color: #f1f8e9;
+    border-left: 4px solid #4CAF50;
+    margin-right: 20px;
+}
+
+.system-message {
+    background-color: #fff3e0;
+    border-left: 4px solid #FF9800;
+    font-style: italic;
+}
+
+.message-header {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #555;
+    font-size: 0.9em;
+}
+
+.message-time {
+    float: right;
+    font-size: 0.8em;
+    color: #888;
+}
+
+.message-content {
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+/* Формы */
+.easyui-textbox {
+    border-radius: 4px !important;
+}
+
+.easyui-linkbutton {
+    border-radius: 4px !important;
+}
+
+/* Диалоговые окна */
+.easyui-dialog {
+    border-radius: 8px !important;
+    overflow: hidden;
+}
+
+/* Вкладки */
+.easyui-tabs .tabs {
+    border-radius: 5px 5px 0 0;
+}
+
+/* Панели */
+.easyui-panel {
+    border-radius: 5px !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Аккордеон */
+.easyui-accordion .accordion {
+    border-radius: 5px !important;
+}
+
+/* Сетка данных */
+.easyui-datagrid {
+    border-radius: 5px !important;
+}
+
+/* Статистика */
+#stats-content .easyui-panel {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+/* Кнопки действий */
+.action-button {
+    display: inline-block;
+    padding: 8px 16px;
+    margin: 5px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.action-button:hover {
+    background-color: #45a049;
+}
+
+.action-button.secondary {
+    background-color: #607D8B;
+}
+
+.action-button.secondary:hover {
+    background-color: #546E7A;
+}
+
+/* Индикаторы */
+.progress-indicator {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Уведомления */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    z-index: 1000;
+    animation: slideIn 0.3s;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.notification.success {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.notification.error {
+    background-color: #F44336;
+    color: white;
+}
+
+.notification.info {
+    background-color: #2196F3;
+    color: white;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    body .easyui-layout .layout-panel-west {
+        width: 150px !important;
+    }
+
+    #question-input {
+        height: 80px !important;
+    }
+}
+
+/* Скроллбар */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

@@ -2,14 +2,17 @@ package com.example.aiassistant;
 
 import com.example.aiassistant.service.AssistantService;
 import com.example.aiassistant.service.VectorDBService;
+import com.example.aiassistant.web.WebServer;
 import org.json.JSONObject;
 
 import java.util.Scanner;
 
 public class Main {
+    private static WebServer webServer;
+
     public static void main(String[] args) {
         System.out.println("=== Локальный AI Ассистент с RAG ===");
-        System.out.println("Версия с сохранением истории, потоковым выводом и озвучкой");
+        System.out.println("Версия с веб-интерфейсом и консолью");
         System.out.println("Инициализация...\n");
 
         try {
@@ -29,6 +32,11 @@ public class Main {
             System.out.println("✓ Доступно памяти для RAG: ~70 ГБ");
             System.out.println("\n" + "=".repeat(50) + "\n");
 
+            // Запуск веб-сервера
+            int webPort = 8080;
+            webServer = new WebServer(webPort, assistant, vectorDB);
+            new Thread(() -> webServer.start()).start();
+
             Scanner scanner = new Scanner(System.in);
 
             // Загрузка начальных знаний (пример)
@@ -38,7 +46,7 @@ public class Main {
             boolean running = true;
             while (running) {
                 printMenu();
-                System.out.print("Выберите действие (1-18): ");
+                System.out.print("Выберите действие (1-19): ");
 
                 String choice = scanner.nextLine().trim();
 
@@ -95,8 +103,14 @@ public class Main {
                         showCurrentPrompt(scanner, assistant);
                         break;
                     case "18":
+                        showWebInterfaceInfo(webPort);
+                        break;
+                    case "19":
                         System.out.println("\nВыход из программы...");
                         running = false;
+                        if (webServer != null) {
+                            webServer.stop();
+                        }
                         break;
                     default:
                         System.out.println("Неверный выбор. Попробуйте снова.");
@@ -130,8 +144,28 @@ public class Main {
         System.out.println("15. Управление промптами");
         System.out.println("16. Редактировать текущий промпт");
         System.out.println("17. Показать текущий промпт");
-        System.out.println("18. Выход");
+        System.out.println("18. Информация о веб-интерфейсе");
+        System.out.println("19. Выход");
         System.out.println("=".repeat(30));
+    }
+
+    private static void showWebInterfaceInfo(int port) {
+        System.out.println("\n=== Веб-интерфейс ===");
+        System.out.println("Веб-сервер запущен на порту: " + port);
+        System.out.println("URL для доступа: http://localhost:" + port);
+        System.out.println("\nФункциональность веб-интерфейса:");
+        System.out.println("- Задавать вопросы ассистенту");
+        System.out.println("- Просматривать историю чата");
+        System.out.println("- Управлять моделями");
+        System.out.println("- Редактировать промпты");
+        System.out.println("- Просматривать статистику");
+        System.out.println("- Управлять базой знаний");
+        System.out.println("\nДля возврата в консольное меню нажмите Enter...");
+        try {
+            System.in.read();
+        } catch (Exception e) {
+            // Игнорируем
+        }
     }
 
     private static void askQuestion(Scanner scanner, AssistantService assistant) {

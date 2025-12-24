@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>AI Assistant - Локальный ассистент с RAG</title>
+    <title>AI Assistant - Локальный ассистент с RAG</title>
+
+
+    <link rel="stylesheet" type="text/css" href="https://www.jeasyui.com/easyui/themes/default/easyui.css">
+    <link rel="stylesheet" type="text/css" href="https://www.jeasyui.com/easyui/themes/icon.css">
+    <link rel="stylesheet" type="text/css" href="https://www.jeasyui.com/easyui/themes/color.css">
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" src="https://www.jeasyui.com/easyui/jquery.easyui.min.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="/css/style.css">
+    <!-- Загрузка app.js после jQuery и EasyUI -->
+    <script type="text/javascript" src="/js/app.js"></script>
+
+</head>
+<body class="easyui-layout">
+
+<!-- Северная панель - заголовок -->
+<div data-options="region:'north',border:false" style="height:60px;background:#2d3e50;padding:10px">
+    <h1 style="color:white;margin:0;display:inline-block">🤖 AI Assistant</h1>
+    <span style="color:#ccc;margin-left:20px">Локальный ассистент с RAG и потоковым выводом</span>
+    <div style="float:right;margin-top:10px">
+        <span id="status" class="status-connected">● Подключено</span>
+    </div>
+</div>
+
+<!-- Западная панель - меню -->
+<div data-options="region:'west',split:true,title:'Меню'" style="width:200px;padding:10px">
+    <div class="easyui-accordion" style="width:100%;">
+        <div title="Чат" data-options="iconCls:'icon-comments'" style="padding:10px">
+            <a href="javascript:void(0)" class="menu-link" onclick="showChat()">💬 Диалог</a><br>
+            <a href="javascript:void(0)" class="menu-link" onclick="showHistory()">📜 История</a><br>
+            <a href="javascript:void(0)" class="menu-link" onclick="clearHistory()">🗑️ Очистить</a>
+        </div>
+        <div title="Знания" data-options="iconCls:'icon-book'" style="padding:10px">
+            <a href="javascript:void(0)" class="menu-link" onclick="addKnowledge()">➕ Добавить</a><br>
+            <a href="javascript:void(0)" class="menu-link" onclick="searchKnowledge()">🔍 Поиск</a><br>
+            <a href="javascript:void(0)" class="menu-link" onclick="showStats()">📊 Статистика</a>
+        </div>
+        <div title="Модели" data-options="iconCls:'icon-cog'" style="padding:10px">
+            <a href="javascript:void(0)" class="menu-link" onclick="manageModels()">🔄 Управление</a><br>
+            <a href="javascript:void(0)" class="menu-link" onclick="listModels()">📋 Список</a><br>
+            <a href="javascript:void(0)" class="menu-link" onclick="pullModel()">⬇️ Загрузить</a>
+        </div>
+        <div title="Настройки" data-options="iconCls:'icon-tip'" style="padding:10px">
+            <a href="javascript:void(0)" class="menu-link" onclick="toggleChatMode()">🔄 Режим</a><br>
+            <a href="javascript:void(0)" class="menu-link" onclick="toggleCache()">⚡ Кэш</a><br>
+            <a href="javascript:void(0)" class="menu-link" onclick="toggleSpeech()">🔊 Озвучка</a><br>
+            <a href="javascript:void(0)" class="menu-link" onclick="managePrompts()">📝 Промпты</a>
+        </div>
+    </div>
+</div>
+
+<!-- Центральная область - основное содержимое -->
+<div data-options="region:'center',title:'Диалог'" style="padding:5px">
+    <div id="chat-tabs" class="easyui-tabs" style="width:100%;height:100%">
+        <div title="💬 Диалог" style="padding:20px">
+            <div style="margin-bottom:20px">
+                    <textarea id="question-input" class="easyui-textbox"
+                              data-options="multiline:true,prompt:'Введите ваш вопрос...'"
+                              style="width:100%;height:100px"></textarea>
+                <div style="margin-top:10px">
+                    <a href="javascript:void(0)" class="easyui-linkbutton"
+                       onclick="sendQuestion()" data-options="iconCls:'icon-send'">Отправить</a>
+                    <a href="javascript:void(0)" class="easyui-linkbutton"
+                       onclick="clearInput()" data-options="iconCls:'icon-clear'">Очистить</a>
+                    <span style="margin-left:20px">
+                            <label><input type="checkbox" id="stream-toggle" checked> Потоковый вывод</label>
+                        </span>
+                </div>
+            </div>
+
+            <div class="easyui-panel" title="Ответ" style="width:100%;height:400px;padding:10px">
+                <div id="response-area" style="height:100%;overflow-y:auto;font-family:'Courier New',monospace">
+                    <div class="system-message">🤖 Готов к работе. Задайте вопрос...</div>
+                </div>
+            </div>
+        </div>
+
+        <div title="📜 История чата" style="padding:20px">
+            <table id="history-grid" class="easyui-datagrid" style="width:100%;height:100%"
+                   data-options="singleSelect:true,collapsible:true,rownumbers:true">
+                <thead>
+                <tr>
+                    <th data-options="field:'role',width:100">Роль</th>
+                    <th data-options="field:'content',width:400">Содержимое</th>
+                    <th data-options="field:'timestamp',width:150">Время</th>
+                </tr>
+                </thead>
+            </table>
+        </div>
+
+        <div title="➕ Добавить знания" style="padding:20px">
+            <div class="easyui-panel" style="padding:20px">
+                <div style="margin-bottom:15px">
+                    <label>Источник:</label>
+                    <input id="knowledge-source" class="easyui-textbox" style="width:300px"
+                           data-options="prompt:'Например: книга, статья, личный опыт'">
+                </div>
+                <div style="margin-bottom:15px">
+                    <label>Текст для добавления:</label>
+                    <textarea id="knowledge-content" class="easyui-textbox"
+                              data-options="multiline:true"
+                              style="width:100%;height:200px"></textarea>
+                </div>
+                <div>
+                    <a href="javascript:void(0)" class="easyui-linkbutton"
+                       onclick="submitKnowledge()" data-options="iconCls:'icon-save'">Добавить</a>
+                    <a href="javascript:void(0)" class="easyui-linkbutton"
+                       onclick="clearKnowledgeForm()" data-options="iconCls:'icon-clear'">Очистить</a>
+                </div>
+            </div>
+        </div>
+
+        <div title="📊 Статистика" style="padding:20px">
+            <div id="stats-content" style="font-size:14px;line-height:1.6">
+                <div class="easyui-panel" title="Системная статистика" style="margin-bottom:20px;padding:15px">
+                    Загрузка...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Южная панель - статус и информация -->
+<div data-options="region:'south',border:false" style="height:30px;background:#f0f0f0;padding:5px">
+    <div style="float:left">
+        <span id="model-info">Модель: Загрузка...</span>
+        <span style="margin-left:20px" id="mode-info">Режим: Загрузка...</span>
+    </div>
+    <div style="float:right">
+        <span id="doc-count">Документов: 0</span>
+        <span style="margin-left:20px" id="memory-info">Память: 0%</span>
+    </div>
+</div>
+
+<!-- Диалоговые окна -->
+<div id="model-dialog" class="easyui-dialog" title="Управление моделями"
+     style="width:600px;height:400px;padding:10px" data-options="closed:true,modal:true">
+    <div id="model-tabs" class="easyui-tabs" style="width:100%;height:100%">
+        <div title="Смена модели" style="padding:20px">
+            <div style="margin-bottom:15px">
+                <label>Текущая модель:</label>
+                <span id="current-model-name" style="font-weight:bold;margin-left:10px">Загрузка...</span>
+            </div>
+            <div style="margin-bottom:15px">
+                <label>Выберите модель:</label>
+                <select id="model-select" class="easyui-combobox" style="width:300px"></select>
+            </div>
+            <div>
+                <a href="javascript:void(0)" class="easyui-linkbutton"
+                   onclick="switchModel()">Сменить</a>
+                <a href="javascript:void(0)" class="easyui-linkbutton"
+                   onclick="refreshModels()">Обновить</a>
+            </div>
+        </div>
+
+        <div title="Загрузка модели" style="padding:20px">
+            <div style="margin-bottom:15px">
+                <label>Название модели:</label>
+                <input id="new-model-name" class="easyui-textbox" style="width:300px"
+                       data-options="prompt:'например: llama2:7b'">
+            </div>
+            <div style="margin-bottom:15px">
+                <label>Примеры популярных моделей:</label>
+                <div style="margin:10px 0;color:#666">
+                    <div>• deepseek-coder:6.7b</div>
+                    <div>• llama2:7b</div>
+                    <div>• mistral:7b</div>
+                    <div>• codellama:7b</div>
+                    <div>• phi:2.7b</div>
+                </div>
+            </div>
+            <div>
+                <a href="javascript:void(0)" class="easyui-linkbutton"
+                   onclick="startModelPull()">Начать загрузку</a>
+            </div>
+            <div id="pull-progress" style="margin-top:20px;display:none">
+                <div class="easyui-progressbar" style="width:100%"></div>
+                <div id="pull-status" style="margin-top:10px"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="prompt-dialog" class="easyui-dialog" title="Управление промптами"
+     style="width:700px;height:500px;padding:10px" data-options="closed:true,modal:true">
+    <div class="easyui-tabs" style="width:100%;height:100%">
+        <div title="Текущий промпт" style="padding:10px">
+            <div style="margin-bottom:10px">
+                <label>Режим:</label>
+                <span id="current-prompt-mode" style="font-weight:bold;margin-left:10px"></span>
+            </div>
+            <textarea id="current-prompt-edit" class="easyui-textbox"
+                      data-options="multiline:true"
+                      style="width:100%;height:300px"></textarea>
+            <div style="margin-top:10px">
+                <a href="javascript:void(0)" class="easyui-linkbutton"
+                   onclick="updateCurrentPrompt()">Сохранить</a>
+                <a href="javascript:void(0)" class="easyui-linkbutton"
+                   onclick="resetPrompts()">Сбросить</a>
+            </div>
+        </div>
+
+        <div title="Просмотр промптов" style="padding:10px">
+            <div class="easyui-accordion" style="width:100%;height:100%">
+                <div title="Промпт для режима ЧАТ" style="padding:10px">
+                    <div id="chat-prompt-view" style="white-space:pre-wrap;font-family:monospace;overflow:auto;height:150px"></div>
+                </div>
+                <div title="Промпт для режима ГЕНЕРАЦИЯ" style="padding:10px">
+                    <div id="generation-prompt-view" style="white-space:pre-wrap;font-family:monospace;overflow:auto;height:150px"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="search-dialog" class="easyui-dialog" title="Поиск в базе знаний"
+     style="width:500px;height:300px;padding:10px" data-options="closed:true,modal:true">
+    <div style="margin-bottom:15px">
+        <label>Поисковый запрос:</label>
+        <input id="search-query" class="easyui-textbox" style="width:100%">
+    </div>
+    <div style="margin-bottom:15px">
+        <a href="javascript:void(0)" class="easyui-linkbutton"
+           onclick="performSearch()">Искать</a>
+    </div>
+    <div id="search-results" style="margin-top:20px"></div>
+</div>
+
+
+<script>
+    // Инициализация при загрузке страницы - после загрузки app.js
+    $(document).ready(function() {
+        // Проверяем, что функции определены
+        if (typeof loadSystemInfo === 'function' &&
+            typeof connectEventSource === 'function' &&
+            typeof loadChatHistory === 'function') {
+            loadSystemInfo();
+            connectEventSource();
+            loadChatHistory();
+        } else {
+            console.error('Функции из app.js не загружены');
+            setTimeout(function() {
+                // Повторная попытка через 500мс
+                if (typeof loadSystemInfo === 'function') {
+                    loadSystemInfo();
+                    connectEventSource();
+                    loadChatHistory();
+                } else {
+                    console.error('Не удалось загрузить функции из app.js');
+                }
+            }, 500);
+        }
+    });
+</script>
+
+</body>
+</html>
