@@ -14,25 +14,6 @@ public class RAGService {
     private final SpeakToText speakToText;
     private boolean inCodeBlock = false;
 
-    // Шаблон промпта для RAG с историей
-    private static final String RAG_PROMPT_TEMPLATE = """
-        Ты полезный AI ассистент с доступом к базе знаний.
-        
-        История предыдущего диалога:
-        {history}
-        
-        Информация из базы знаний для текущего вопроса:
-        {context}
-        
-        Текущий вопрос пользователя: {query}
-        
-        Учти историю диалога и предоставленную информацию из базы знаний.
-        Если в информации из базы знаний есть ответ - используй её.
-        Если информации недостаточно - используй свои знания.
-        Отвечай точно, информативно и учитывай контекст всего диалога.
-        
-        Ответ:""";
-
     public RAGService(VectorDBService vectorDB,
                       EmbeddingService embeddingService,
                       OllamaService ollamaService) {
@@ -59,22 +40,6 @@ public class RAGService {
 
         // Формируем историю диалога (исключая системное сообщение и текущий вопрос)
         String historyText = formatChatHistory(chatHistory);
-
-        // Формируем промпт
-        String prompt;
-        if (context != null && !context.trim().isEmpty()) {
-            prompt = RAG_PROMPT_TEMPLATE
-                    .replace("{history}", historyText)
-                    .replace("{context}", context)
-                    .replace("{query}", question);
-
-            System.out.println("[Найдено релевантной информации. Формирую ответ с учетом истории...]");
-        } else {
-            prompt = "История диалога:\n" + historyText +
-                    "\n\nТекущий вопрос пользователя: " + question +
-                    "\n\nОтветь на вопрос, используя свои знания и учитывая историю диалога:";
-            System.out.println("[Релевантная информация не найдена. Использую знания модели и историю...]");
-        }
 
         // Отправляем запрос к LLM с потоковой передачей
         System.out.println("\n[Генерация ответа...]");
@@ -104,57 +69,12 @@ public class RAGService {
             }
         });
 
-        // Получаем ответ в зависимости от режима работы
-        String answer;
-        if (ollamaService.isUseChatMode()) {
-            // Используем режим чата с историей
-            List<JSONObject> messages = prepareChatMessages(question, chatHistory, context);
-            answer = ollamaService.sendChatRequest(messages, true);
-        } else {
-            // Используем режим генерации
-            answer = ollamaService.sendGenerateRequest(prompt, true);
-        }
+        // Получаем ответ с использованием подходящего промпта
+        String answer = ollamaService.sendRequest(question, context, historyText, true);
 
         System.out.println("\n" + "-".repeat(50));
 
         return fullResponse.toString();
-    }
-
-    // Подготовка сообщений для режима чата
-    private List<JSONObject> prepareChatMessages(String question, List<ChatMessage> chatHistory, String context) {
-        // Конвертируем историю в JSON объекты
-        List<JSONObject> messages = new java.util.ArrayList<>();
-
-        // Добавляем системное сообщение
-        JSONObject systemMessage = new JSONObject();
-        systemMessage.put("role", "system");
-        systemMessage.put("content", "Ты полезный AI ассистент с доступом к базе знаний. Отвечай точно и информативно.");
-        messages.add(systemMessage);
-
-        // Добавляем контекст из базы знаний как системное сообщение
-        if (context != null && !context.trim().isEmpty()) {
-            JSONObject contextMessage = new JSONObject();
-            contextMessage.put("role", "system");
-            contextMessage.put("content", "Контекст из базы знаний:\n" + context);
-            messages.add(contextMessage);
-        }
-
-        // Добавляем историю диалога (кроме последнего вопроса)
-        for (int i = 1; i < chatHistory.size() - 1; i++) {
-            ChatMessage msg = chatHistory.get(i);
-            JSONObject message = new JSONObject();
-            message.put("role", msg.getRole() == ChatMessage.Role.USER ? "user" : "assistant");
-            message.put("content", msg.getContent());
-            messages.add(message);
-        }
-
-        // Добавляем текущий вопрос
-        JSONObject userMessage = new JSONObject();
-        userMessage.put("role", "user");
-        userMessage.put("content", question);
-        messages.add(userMessage);
-
-        return messages;
     }
 
     // Обработка предложений для озвучки
@@ -235,6 +155,12 @@ public class RAGService {
         stats.put("use_chat_mode", ollamaService.isUseChatMode());
         stats.put("use_cache", ollamaService.isUseCache());
 
+        // Добавляем информацию о промптах
+        JSONObject promptInfo = new JSONObject();
+        promptInfo.put("chat_prompt_length", ollamaService.getChatPromptTemplate().length());
+        promptInfo.put("generation_prompt_length", ollamaService.getGenerationPromptTemplate().length());
+        stats.put("prompt_info", promptInfo);
+
         // Добавляем информацию о кэше
         JSONObject cacheInfo = ollamaService.getCacheInfo();
         if (cacheInfo != null) {
@@ -257,6 +183,39 @@ public class RAGService {
     // Переключение использования кэша
     public void toggleCache(boolean useCache) {
         ollamaService.setUseCache(useCache);
+    }
+
+    // Получение текущего промпта для режима
+    public String getCurrentPromptTemplate() {
+        if (ollamaService.isUseChatMode()) {
+            return ollamaService.getChatPromptTemplate();
+        } else {
+            return ollamaService.getGenerationPromptTemplate();
+        }
+    }
+
+    // Обновление промпта для текущего режима
+    public void updateCurrentPromptTemplate(String newTemplate) {
+        if (ollamaService.isUseChatMode()) {
+            ollamaService.setChatPromptTemplate(newTemplate);
+        } else {
+            ollamaService.setGenerationPromptTemplate(newTemplate);
+        }
+    }
+
+    // Получение всех промптов в виде JSON
+    public JSONObject getPromptsAsJSON() {
+        return ollamaService.getPromptsAsJSON();
+    }
+
+    // Установка промптов из JSON
+    public void setPromptsFromJSON(JSONObject prompts) {
+        ollamaService.setPromptsFromJSON(prompts);
+    }
+
+    // Сброс промптов к значениям по умолчанию
+    public void resetPromptsToDefault() {
+        ollamaService.resetPromptsToDefault();
     }
 
     // Поиск в базе знаний

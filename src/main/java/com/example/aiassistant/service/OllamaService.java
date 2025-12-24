@@ -22,6 +22,39 @@ public class OllamaService {
     private boolean useChatMode = true; // По умолчанию используем режим чата
     private boolean useCache = true; // Использовать кэш по умолчанию
 
+    // Промпты для разных режимов
+    private String chatPromptTemplate = """
+        Ты полезный AI ассистент с доступом к базе знаний.
+        
+        История предыдущего диалога:
+        {history}
+        
+        Информация из базы знаний для текущего вопроса:
+        {context}
+        
+        Текущий вопрос пользователя: {query}
+        
+        Учти историю диалога и предоставленную информацию из базы знаний.
+        Если в информации из базы знаний есть ответ - используй её.
+        Если информации недостаточно - используй свои знания.
+        Отвечай точно, информативно и учитывай контекст всего диалога.
+        
+        Ответ:""";
+
+    private String generationPromptTemplate = """
+        Ты полезный AI ассистент с доступом к базе знаний.
+        
+        Информация из базы знаний для текущего вопроса:
+        {context}
+        
+        Запрос пользователя: {query}
+        
+        Используй предоставленную информацию из базы знаний для ответа.
+        Если информации недостаточно - используй свои знания.
+        Отвечай точно и информативно.
+        
+        Ответ:""";
+
     public OllamaService(String ollamaHost, String modelName) {
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_2)
@@ -91,11 +124,22 @@ public class OllamaService {
         }
     }
 
-    // Универсальный метод для отправки запроса с выбором режима
-    public String sendRequest(String prompt, List<JSONObject> messages, boolean stream) {
-        if (useChatMode && messages != null && !messages.isEmpty()) {
-            return sendChatRequest(messages, stream);
+    // Универсальный метод для отправки запроса с выбором режима и подстановкой промпта
+    public String sendRequest(String query, String context, String history, boolean stream) {
+        if (useChatMode) {
+            // Используем режим чата
+            String prompt = chatPromptTemplate
+                    .replace("{query}", query)
+                    .replace("{context}", context != null ? context : "")
+                    .replace("{history}", history != null ? history : "");
+
+            return sendGenerateRequest(prompt, stream);
         } else {
+            // Используем режим генерации
+            String prompt = generationPromptTemplate
+                    .replace("{query}", query)
+                    .replace("{context}", context != null ? context : "");
+
             return sendGenerateRequest(prompt, stream);
         }
     }
@@ -417,6 +461,89 @@ public class OllamaService {
 
     public boolean isUseCache() {
         return useCache;
+    }
+
+    // Новые методы для управления промптами
+    public void setChatPromptTemplate(String template) {
+        this.chatPromptTemplate = template;
+        System.out.println("Промпт для режима ЧАТ обновлен");
+    }
+
+    public String getChatPromptTemplate() {
+        return chatPromptTemplate;
+    }
+
+    public void setGenerationPromptTemplate(String template) {
+        this.generationPromptTemplate = template;
+        System.out.println("Промпт для режима ГЕНЕРАЦИЯ обновлен");
+    }
+
+    public String getGenerationPromptTemplate() {
+        return generationPromptTemplate;
+    }
+
+    // Метод для получения промптов в виде JSON
+    public JSONObject getPromptsAsJSON() {
+        JSONObject prompts = new JSONObject();
+        prompts.put("chat_prompt", chatPromptTemplate);
+        prompts.put("generation_prompt", generationPromptTemplate);
+        prompts.put("use_chat_mode", useChatMode);
+        prompts.put("use_cache", useCache);
+        return prompts;
+    }
+
+    // Метод для установки промптов из JSON
+    public void setPromptsFromJSON(JSONObject prompts) {
+        if (prompts.has("chat_prompt")) {
+            this.chatPromptTemplate = prompts.getString("chat_prompt");
+        }
+        if (prompts.has("generation_prompt")) {
+            this.generationPromptTemplate = prompts.getString("generation_prompt");
+        }
+        if (prompts.has("use_chat_mode")) {
+            this.useChatMode = prompts.getBoolean("use_chat_mode");
+        }
+        if (prompts.has("use_cache")) {
+            this.useCache = prompts.getBoolean("use_cache");
+        }
+        System.out.println("Промпты и настройки загружены из JSON");
+    }
+
+    // Сброс промптов к значениям по умолчанию
+    public void resetPromptsToDefault() {
+        this.chatPromptTemplate = """
+            Ты полезный AI ассистент с доступом к базе знаний.
+            
+            История предыдущего диалога:
+            {history}
+            
+            Информация из базы знаний для текущего вопроса:
+            {context}
+            
+            Текущий вопрос пользователя: {query}
+            
+            Учти историю диалога и предоставленную информацию из базы знаний.
+            Если в информации из базы знаний есть ответ - используй её.
+            Если информации недостаточно - используй свои знания.
+            Отвечай точно, информативно и учитывай контекст всего диалога.
+            
+            Ответ:""";
+
+        this.generationPromptTemplate = """
+            Ты полезный AI ассистент с доступом к базе знаний.
+            
+            Информация из базы знаний для текущего вопроса:
+            {context}
+            
+            Запрос пользователя: {query}
+            
+            Используй предоставленную информацию из базы знаний для ответа.
+            Если информации недостаточно - используй свои знания.
+            Отвечай точно и информативно.
+            
+            Ответ:""";
+
+        System.out.println("Промпты сброшены к значениям по умолчанию");
     }
 
     public void setModel(String modelName) {

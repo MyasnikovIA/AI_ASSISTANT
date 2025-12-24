@@ -24,6 +24,7 @@ public class Main {
             System.out.println("✓ Режим работы: " + (assistant.isUseChatMode() ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
             System.out.println("✓ Использование кэша: " + (assistant.isUseCache() ? "ВКЛ" : "ВЫКЛ"));
             System.out.println("✓ История чата загружена");
+            System.out.println("✓ Промпты загружены");
             System.out.println("✓ Озвучка: " + (assistant.isSpeechEnabled() ? "ВКЛ" : "ВЫКЛ"));
             System.out.println("✓ Доступно памяти для RAG: ~70 ГБ");
             System.out.println("\n" + "=".repeat(50) + "\n");
@@ -37,7 +38,7 @@ public class Main {
             boolean running = true;
             while (running) {
                 printMenu();
-                System.out.print("Выберите действие (1-15): ");
+                System.out.print("Выберите действие (1-18): ");
 
                 String choice = scanner.nextLine().trim();
 
@@ -85,6 +86,15 @@ public class Main {
                         manageCache(scanner, assistant);
                         break;
                     case "15":
+                        managePrompts(scanner, assistant);
+                        break;
+                    case "16":
+                        editCurrentPrompt(scanner, assistant);
+                        break;
+                    case "17":
+                        showCurrentPrompt(scanner, assistant);
+                        break;
+                    case "18":
                         System.out.println("\nВыход из программы...");
                         running = false;
                         break;
@@ -117,7 +127,10 @@ public class Main {
         System.out.println("12. Переключить режим работы (чат/генерация)");
         System.out.println("13. Включить/выключить кэш");
         System.out.println("14. Управление кэшем");
-        System.out.println("15. Выход");
+        System.out.println("15. Управление промптами");
+        System.out.println("16. Редактировать текущий промпт");
+        System.out.println("17. Показать текущий промпт");
+        System.out.println("18. Выход");
         System.out.println("=".repeat(30));
     }
 
@@ -213,6 +226,14 @@ public class Main {
         System.out.println("Использование кэша: " + (stats.getBoolean("use_cache") ? "ВКЛ" : "ВЫКЛ"));
         System.out.println("Сообщений в истории чата: " + stats.getInt("chat_history_size"));
         System.out.println("Озвучка: " + (stats.getBoolean("speech_enabled") ? "ВКЛ" : "ВЫКЛ"));
+
+        // Показываем информацию о промптах
+        if (stats.has("prompt_info")) {
+            JSONObject promptInfo = stats.getJSONObject("prompt_info");
+            System.out.println("\nИнформация о промптах:");
+            System.out.println("  Длина промпта для чата: " + promptInfo.getInt("chat_prompt_length") + " символов");
+            System.out.println("  Длина промпта для генерации: " + promptInfo.getInt("generation_prompt_length") + " символов");
+        }
 
         // Показываем информацию о кэше, если она есть
         if (stats.has("cache_info")) {
@@ -508,6 +529,269 @@ public class Main {
                 return;
             default:
                 System.out.println("Неверный выбор");
+        }
+    }
+
+    // Новый метод для управления промптами
+    private static void managePrompts(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Управление промптами ===");
+        System.out.println("1. Показать промпт для режима ЧАТ");
+        System.out.println("2. Показать промпт для режима ГЕНЕРАЦИЯ");
+        System.out.println("3. Редактировать промпт для режима ЧАТ");
+        System.out.println("4. Редактировать промпт для режима ГЕНЕРАЦИЯ");
+        System.out.println("5. Сбросить промпты к значениям по умолчанию");
+        System.out.println("6. Экспортировать промпты в файл");
+        System.out.println("7. Импортировать промпты из файла");
+        System.out.println("8. Назад");
+
+        System.out.print("Выберите действие: ");
+        String choice = scanner.nextLine().trim();
+
+        switch (choice) {
+            case "1":
+                showChatPrompt(scanner, assistant);
+                break;
+            case "2":
+                showGenerationPrompt(scanner, assistant);
+                break;
+            case "3":
+                editChatPrompt(scanner, assistant);
+                break;
+            case "4":
+                editGenerationPrompt(scanner, assistant);
+                break;
+            case "5":
+                resetPrompts(scanner, assistant);
+                break;
+            case "6":
+                exportPrompts(scanner, assistant);
+                break;
+            case "7":
+                importPrompts(scanner, assistant);
+                break;
+            case "8":
+                return;
+            default:
+                System.out.println("Неверный выбор");
+        }
+    }
+
+    // Новый метод для редактирования текущего промпта
+    private static void editCurrentPrompt(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Редактирование текущего промпта ===");
+        System.out.println("Текущий режим: " + (assistant.isUseChatMode() ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
+
+        String currentPrompt = assistant.getCurrentPrompt();
+        System.out.println("\nТекущий промпт:");
+        System.out.println("-".repeat(50));
+        System.out.println(currentPrompt);
+        System.out.println("-".repeat(50));
+
+        System.out.println("\nВведите новый промпт (можно многострочный):");
+        System.out.println("Для завершения введите 'end' на отдельной строке");
+        System.out.println("=".repeat(50));
+
+        StringBuilder newPrompt = new StringBuilder();
+        String line;
+
+        while (!(line = scanner.nextLine()).equalsIgnoreCase("end")) {
+            newPrompt.append(line).append("\n");
+        }
+
+        String finalPrompt = newPrompt.toString().trim();
+        if (finalPrompt.length() > 0) {
+            assistant.updateCurrentPrompt(finalPrompt);
+            System.out.println("✓ Промпт успешно обновлен");
+        } else {
+            System.out.println("Промпт не был изменен.");
+        }
+    }
+
+    // Новый метод для показа текущего промпта
+    private static void showCurrentPrompt(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Текущий промпт ===");
+        System.out.println("Режим: " + (assistant.isUseChatMode() ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
+
+        String currentPrompt = assistant.getCurrentPrompt();
+        System.out.println("\nСодержимое промпта:");
+        System.out.println("=".repeat(60));
+        System.out.println(currentPrompt);
+        System.out.println("=".repeat(60));
+
+        System.out.println("\nДлина промпта: " + currentPrompt.length() + " символов");
+        System.out.println("Нажмите Enter для продолжения...");
+        scanner.nextLine();
+    }
+
+    // Новый метод для показа промпта чата
+    private static void showChatPrompt(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Промпт для режима ЧАТ ===");
+
+        String chatPrompt = assistant.getChatPrompt();
+        System.out.println("\nСодержимое промпта:");
+        System.out.println("=".repeat(60));
+        System.out.println(chatPrompt);
+        System.out.println("=".repeat(60));
+
+        System.out.println("\nДлина промпта: " + chatPrompt.length() + " символов");
+        System.out.println("Нажмите Enter для продолжения...");
+        scanner.nextLine();
+    }
+
+    // Новый метод для показа промпта генерации
+    private static void showGenerationPrompt(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Промпт для режима ГЕНЕРАЦИЯ ===");
+
+        String generationPrompt = assistant.getGenerationPrompt();
+        System.out.println("\nСодержимое промпта:");
+        System.out.println("=".repeat(60));
+        System.out.println(generationPrompt);
+        System.out.println("=".repeat(60));
+
+        System.out.println("\nДлина промпта: " + generationPrompt.length() + " символов");
+        System.out.println("Нажмите Enter для продолжения...");
+        scanner.nextLine();
+    }
+
+    // Новый метод для редактирования промпта чата
+    private static void editChatPrompt(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Редактирование промпта для режима ЧАТ ===");
+
+        String currentPrompt = assistant.getChatPrompt();
+        System.out.println("\nТекущий промпт:");
+        System.out.println("-".repeat(50));
+        System.out.println(currentPrompt);
+        System.out.println("-".repeat(50));
+
+        System.out.println("\nДоступные переменные для подстановки:");
+        System.out.println("  {history} - история диалога");
+        System.out.println("  {context} - контекст из базы знаний");
+        System.out.println("  {query} - текущий вопрос пользователя");
+
+        System.out.println("\nВведите новый промпт (можно многострочный):");
+        System.out.println("Для завершения введите 'end' на отдельной строке");
+        System.out.println("=".repeat(50));
+
+        StringBuilder newPrompt = new StringBuilder();
+        String line;
+
+        while (!(line = scanner.nextLine()).equalsIgnoreCase("end")) {
+            newPrompt.append(line).append("\n");
+        }
+
+        String finalPrompt = newPrompt.toString().trim();
+        if (finalPrompt.length() > 0) {
+            assistant.updateChatPrompt(finalPrompt);
+            System.out.println("✓ Промпт для режима ЧАТ успешно обновлен");
+        } else {
+            System.out.println("Промпт не был изменен.");
+        }
+    }
+
+    // Новый метод для редактирования промпта генерации
+    private static void editGenerationPrompt(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Редактирование промпта для режима ГЕНЕРАЦИЯ ===");
+
+        String currentPrompt = assistant.getGenerationPrompt();
+        System.out.println("\nТекущий промпт:");
+        System.out.println("-".repeat(50));
+        System.out.println(currentPrompt);
+        System.out.println("-".repeat(50));
+
+        System.out.println("\nДоступные переменные для подстановки:");
+        System.out.println("  {context} - контекст из базы знаний");
+        System.out.println("  {query} - текущий вопрос пользователя");
+
+        System.out.println("\nВведите новый промпт (можно многострочный):");
+        System.out.println("Для завершения введите 'end' на отдельной строке");
+        System.out.println("=".repeat(50));
+
+        StringBuilder newPrompt = new StringBuilder();
+        String line;
+
+        while (!(line = scanner.nextLine()).equalsIgnoreCase("end")) {
+            newPrompt.append(line).append("\n");
+        }
+
+        String finalPrompt = newPrompt.toString().trim();
+        if (finalPrompt.length() > 0) {
+            assistant.updateGenerationPrompt(finalPrompt);
+            System.out.println("✓ Промпт для режима ГЕНЕРАЦИЯ успешно обновлен");
+        } else {
+            System.out.println("Промпт не был изменен.");
+        }
+    }
+
+    // Новый метод для сброса промптов
+    private static void resetPrompts(Scanner scanner, AssistantService assistant) {
+        System.out.print("\nВы уверены, что хотите сбросить промпты к значениям по умолчанию? (y/N): ");
+        String confirm = scanner.nextLine().trim();
+
+        if (confirm.equalsIgnoreCase("y") || confirm.equalsIgnoreCase("yes")) {
+            assistant.resetPromptsToDefault();
+            System.out.println("✓ Промпты сброшены к значениям по умолчанию");
+        } else {
+            System.out.println("Сброс отменен");
+        }
+    }
+
+    // Новый метод для экспорта промптов
+    private static void exportPrompts(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Экспорт промптов ===");
+
+        JSONObject prompts = assistant.exportPrompts();
+
+        System.out.print("Введите имя файла для сохранения (по умолчанию: prompts.json): ");
+        String fileName = scanner.nextLine().trim();
+
+        if (fileName.isEmpty()) {
+            fileName = "prompts.json";
+        }
+
+        try {
+            java.nio.file.Files.write(
+                    java.nio.file.Paths.get(fileName),
+                    prompts.toString(4).getBytes() // 4 - количество пробелов для отступов
+            );
+            System.out.println("✓ Промпты успешно экспортированы в файл: " + fileName);
+        } catch (Exception e) {
+            System.err.println("✗ Ошибка экспорта промптов: " + e.getMessage());
+        }
+    }
+
+    // Новый метод для импорта промптов
+    private static void importPrompts(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Импорт промптов ===");
+
+        System.out.print("Введите имя файла для загрузки (по умолчанию: prompts.json): ");
+        String fileName = scanner.nextLine().trim();
+
+        if (fileName.isEmpty()) {
+            fileName = "prompts.json";
+        }
+
+        try {
+            String content = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(fileName)));
+            JSONObject prompts = new JSONObject(content);
+
+            System.out.println("\nНайденные настройки:");
+            System.out.println("- Режим работы: " + (prompts.optBoolean("use_chat_mode", true) ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
+            System.out.println("- Использование кэша: " + (prompts.optBoolean("use_cache", true) ? "ВКЛ" : "ВЫКЛ"));
+            System.out.println("- Длина промпта для чата: " + prompts.optString("chat_prompt", "").length() + " символов");
+            System.out.println("- Длина промпта для генерации: " + prompts.optString("generation_prompt", "").length() + " символов");
+
+            System.out.print("\nВы уверены, что хотите импортировать эти настройки? (y/N): ");
+            String confirm = scanner.nextLine().trim();
+
+            if (confirm.equalsIgnoreCase("y") || confirm.equalsIgnoreCase("yes")) {
+                assistant.importPrompts(prompts);
+                System.out.println("✓ Промпты успешно импортированы из файла: " + fileName);
+            } else {
+                System.out.println("Импорт отменен");
+            }
+
+        } catch (Exception e) {
+            System.err.println("✗ Ошибка импорта промптов: " + e.getMessage());
         }
     }
 

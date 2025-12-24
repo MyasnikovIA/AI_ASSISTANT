@@ -14,6 +14,7 @@ public class AssistantService {
     private final List<ChatMessage> chatHistory;
     private final ChatHistoryService chatHistoryService;
     private final SpeakToText speakToText;
+    private final PromptService promptService;
     private boolean speechEnabled = false;
 
     // Конфигурация
@@ -29,9 +30,13 @@ public class AssistantService {
         this.chatHistory = new ArrayList<>();
         this.chatHistoryService = new ChatHistoryService();
         this.speakToText = new SpeakToText();
+        this.promptService = new PromptService();
 
         // Загружаем историю чата из файла
         loadChatHistory();
+
+        // Загружаем сохраненные промпты
+        loadPrompts();
 
         // Если истории нет, добавляем системное сообщение
         if (chatHistory.isEmpty()) {
@@ -51,6 +56,24 @@ public class AssistantService {
             chatHistory.addAll(loadedHistory);
             System.out.println("Загружена история чата: " + (chatHistory.size() - 1) + " сообщений");
         }
+    }
+
+    // Загрузка сохраненных промптов
+    private void loadPrompts() {
+        JSONObject savedPrompts = promptService.loadPrompts();
+        if (savedPrompts != null) {
+            ragService.setPromptsFromJSON(savedPrompts);
+            System.out.println("Промпты загружены из файла");
+        } else {
+            System.out.println("Используются промпты по умолчанию");
+        }
+    }
+
+    // Сохранение промптов в файл
+    private void savePrompts() {
+        JSONObject prompts = ragService.getPromptsAsJSON();
+        promptService.savePrompts(prompts);
+        System.out.println("Промпты сохранены в файл");
     }
 
     // Основной метод для вопросов с учетом истории и озвучкой
@@ -185,6 +208,7 @@ public class AssistantService {
     // Переключение режима работы (чат/генерация)
     public void toggleChatMode(boolean useChatMode) {
         ragService.toggleChatMode(useChatMode);
+        savePrompts(); // Сохраняем настройки
         System.out.println("Режим работы изменен на: " + (useChatMode ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
     }
 
@@ -195,6 +219,7 @@ public class AssistantService {
     // Переключение использования кэша
     public void toggleCache(boolean useCache) {
         ragService.toggleCache(useCache);
+        savePrompts(); // Сохраняем настройки
         System.out.println("Использование кэша: " + (useCache ? "ВКЛ" : "ВЫКЛ"));
     }
 
@@ -245,6 +270,63 @@ public class AssistantService {
         }
     }
 
+    // Новые методы для управления промптами
+
+    // Получение текущего промпта
+    public String getCurrentPrompt() {
+        return ragService.getCurrentPromptTemplate();
+    }
+
+    // Получение промпта для чата
+    public String getChatPrompt() {
+        return ollamaService.getChatPromptTemplate();
+    }
+
+    // Получение промпта для генерации
+    public String getGenerationPrompt() {
+        return ollamaService.getGenerationPromptTemplate();
+    }
+
+    // Обновление текущего промпта
+    public void updateCurrentPrompt(String newPrompt) {
+        ragService.updateCurrentPromptTemplate(newPrompt);
+        savePrompts(); // Сохраняем изменения
+        System.out.println("Текущий промпт обновлен");
+    }
+
+    // Обновление промпта для чата
+    public void updateChatPrompt(String newPrompt) {
+        ollamaService.setChatPromptTemplate(newPrompt);
+        savePrompts(); // Сохраняем изменения
+        System.out.println("Промпт для режима ЧАТ обновлен");
+    }
+
+    // Обновление промпта для генерации
+    public void updateGenerationPrompt(String newPrompt) {
+        ollamaService.setGenerationPromptTemplate(newPrompt);
+        savePrompts(); // Сохраняем изменения
+        System.out.println("Промпт для режима ГЕНЕРАЦИЯ обновлен");
+    }
+
+    // Сброс промптов к значениям по умолчанию
+    public void resetPromptsToDefault() {
+        ragService.resetPromptsToDefault();
+        savePrompts(); // Сохраняем сброс
+        System.out.println("Промпты сброшены к значениям по умолчанию");
+    }
+
+    // Экспорт промптов в JSON
+    public JSONObject exportPrompts() {
+        return ragService.getPromptsAsJSON();
+    }
+
+    // Импорт промптов из JSON
+    public void importPrompts(JSONObject prompts) {
+        ragService.setPromptsFromJSON(prompts);
+        savePrompts(); // Сохраняем импортированные промпты
+        System.out.println("Промпты импортированы и сохранены");
+    }
+
     // Геттеры
     public String getCurrentModel() {
         return ollamaService.getModel();
@@ -258,7 +340,7 @@ public class AssistantService {
         return new ArrayList<>(chatHistory);
     }
 
-    // Новые методы для управления моделями
+    // Методы для управления моделями
 
     public List<String> getAvailableModels() {
         return ollamaService.getAvailableModels();
