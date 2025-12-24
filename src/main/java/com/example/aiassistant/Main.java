@@ -1,0 +1,185 @@
+package com.example.aiassistant;
+
+import com.example.aiassistant.service.AssistantService;
+import com.example.aiassistant.service.VectorDBService;
+import org.json.JSONObject;
+
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("=== Локальный AI Ассистент с RAG ===");
+        System.out.println("Инициализация...\n");
+
+        try {
+            // Инициализация сервисов
+            VectorDBService vectorDB = VectorDBService.getInstance();
+            AssistantService assistant = new AssistantService(vectorDB);
+
+            System.out.println("✓ База знаний загружена в память");
+            System.out.println("✓ Документов в базе: " + vectorDB.getDocumentCount());
+            System.out.println("✓ Текущая модель: " + assistant.getCurrentModel());
+            System.out.println("✓ Доступно памяти для RAG: ~70 ГБ");
+            System.out.println("\n" + "=".repeat(50) + "\n");
+
+            Scanner scanner = new Scanner(System.in);
+
+            // Загрузка начальных знаний (пример)
+            loadInitialKnowledge(assistant);
+
+            // Основной цикл взаимодействия
+            boolean running = true;
+            while (running) {
+                printMenu();
+                System.out.print("Выберите действие (1-6): ");
+
+                String choice = scanner.nextLine().trim();
+
+                switch (choice) {
+                    case "1":
+                        askQuestion(scanner, assistant);
+                        break;
+                    case "2":
+                        addKnowledge(scanner, assistant);
+                        break;
+                    case "3":
+                        showStatistics(assistant);
+                        break;
+                    case "4":
+                        changeModel(scanner, assistant);
+                        break;
+                    case "5":
+                        searchInKnowledgeBase(scanner, assistant);
+                        break;
+                    case "6":
+                        System.out.println("\nВыход из программы...");
+                        running = false;
+                        break;
+                    default:
+                        System.out.println("Неверный выбор. Попробуйте снова.");
+                }
+            }
+
+            scanner.close();
+
+        } catch (Exception e) {
+            System.err.println("Критическая ошибка: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private static void printMenu() {
+        System.out.println("\n=== Меню ===");
+        System.out.println("1. Задать вопрос ассистенту");
+        System.out.println("2. Добавить новые знания в базу");
+        System.out.println("3. Показать статистику");
+        System.out.println("4. Сменить модель LLM");
+        System.out.println("5. Поиск в базе знаний");
+        System.out.println("6. Выход");
+        System.out.println("=".repeat(30));
+    }
+
+    private static void askQuestion(Scanner scanner, AssistantService assistant) {
+        System.out.print("\nВведите ваш вопрос: ");
+        String question = scanner.nextLine().trim();
+
+        if (question.isEmpty()) {
+            System.out.println("Вопрос не может быть пустым.");
+            return;
+        }
+
+        System.out.println("\n" + "=".repeat(60));
+        String answer = assistant.askQuestion(question);
+        System.out.println(answer);
+        System.out.println("\n" + "=".repeat(60));
+        System.out.println("\n✓ Ответ получен");
+    }
+
+    private static void addKnowledge(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Добавление новых знаний ===");
+        System.out.print("Введите источник знаний (например, 'книга', 'статья', 'личный опыт'): ");
+        String source = scanner.nextLine().trim();
+
+        if (source.isEmpty()) {
+            source = "пользовательский ввод";
+        }
+
+        System.out.println("Введите текст для добавления в базу знаний:");
+        System.out.println("(Для завершения введите 'END' на отдельной строке)");
+
+        StringBuilder content = new StringBuilder();
+        String line;
+
+        while (!(line = scanner.nextLine()).equals("END")) {
+            content.append(line).append("\n");
+        }
+
+        if (content.length() > 0) {
+            assistant.addKnowledge(content.toString().trim(), source);
+            System.out.println("✓ Знания успешно добавлены");
+        } else {
+            System.out.println("Текст не был введен.");
+        }
+    }
+
+    private static void showStatistics(AssistantService assistant) {
+        System.out.println("\n=== Статистика системы ===");
+
+        JSONObject stats = assistant.getStatistics();
+
+        System.out.println("Документов в базе знаний: " + stats.getInt("total_documents"));
+        System.out.println("Использование памяти: " + stats.getString("memory_usage_percent"));
+        System.out.println("Текущая LLM модель: " + stats.getString("llm_model"));
+        System.out.println("Модель для эмбеддингов: " + stats.getString("embedding_model"));
+        System.out.println("Сообщений в истории чата: " + stats.getInt("chat_history_size"));
+    }
+
+    private static void changeModel(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Смена модели ===");
+        System.out.println("Текущая модель: " + assistant.getCurrentModel());
+        System.out.print("Введите название новой модели: ");
+
+        String newModel = scanner.nextLine().trim();
+
+        if (!newModel.isEmpty()) {
+            if (assistant.switchModel(newModel)) {
+                System.out.println("✓ Модель успешно изменена");
+            } else {
+                System.out.println("✗ Не удалось изменить модель");
+            }
+        }
+    }
+
+    private static void searchInKnowledgeBase(Scanner scanner, AssistantService assistant) {
+        System.out.print("\nВведите запрос для поиска в базе знаний: ");
+        String query = scanner.nextLine().trim();
+
+        if (!query.isEmpty()) {
+            assistant.searchKnowledgeBase(query);
+        }
+    }
+
+    private static void loadInitialKnowledge(AssistantService assistant) {
+        // Добавляем пример начальных знаний
+        String[] initialKnowledge = {
+                "Компания ООО 'ТехноСистемы' основана в 2010 году в Москве.",
+                "Основной продукт компании - система автоматизации бизнес-процессов 'БизнесПоток'.",
+                "Сервис OLLAMA позволяет запускать локальные языковые модели на своем компьютере.",
+                "Векторная база данных хранит информацию в виде числовых векторов для быстрого поиска.",
+                "RAG (Retrieval-Augmented Generation) - это техника, которая объединяет поиск информации и генерацию текста.",
+                "Java - объектно-ориентированный язык программирования, созданный Джеймсом Гослингом в 1995 году.",
+                "Для работы с HTTP в Java 11+ можно использовать HttpClient из стандартной библиотеки.",
+                "JSON - текстовый формат обмена данными, основанный на JavaScript.",
+                "Локальный AI ассистент может работать без подключения к интернету, используя локальные модели.",
+                "Эмбеддинг - это представление текста в виде числового вектора для машинного обучения."
+        };
+
+        System.out.println("Загрузка начальных знаний...");
+
+        for (int i = 0; i < initialKnowledge.length; i++) {
+            assistant.addKnowledge(initialKnowledge[i], "начальная база знаний");
+        }
+
+        System.out.println("✓ Загружено " + initialKnowledge.length + " начальных фактов\n");
+    }
+}
