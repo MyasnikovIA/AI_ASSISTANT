@@ -10,9 +10,9 @@ public class AssistantService {
     private final RAGService ragService;
     private final OllamaService ollamaService;
     private final List<ChatMessage> chatHistory;
+    private final ChatHistoryService chatHistoryService;
 
     // Конфигурация
-    //private static final String DEFAULT_MODEL = "llama3.2:latest";
     private static final String DEFAULT_MODEL = "deepseek-coder-v2:16b";
     private static final String DEFAULT_EMBEDDING_MODEL = "all-minilm:22m";
     private static final String OLLAMA_HOST = "http://192.168.15.7:11434";
@@ -26,17 +26,32 @@ public class AssistantService {
         this.ollamaService = new OllamaService(OLLAMA_HOST, DEFAULT_MODEL);
         this.ragService = new RAGService(vectorDB, embeddingService, ollamaService);
         this.chatHistory = new ArrayList<>();
+        this.chatHistoryService = new ChatHistoryService();
 
-        // Добавляем системное сообщение
-        ChatMessage systemMsg = new ChatMessage(
-                ChatMessage.Role.SYSTEM,
-                "Ты полезный AI ассистент с доступом к базе знаний. " +
-                        "Отвечай точно и информативно."
-        );
-        chatHistory.add(systemMsg);
+        // Загружаем историю чата из файла
+        loadChatHistory();
+
+        // Если истории нет, добавляем системное сообщение
+        if (chatHistory.isEmpty()) {
+            ChatMessage systemMsg = new ChatMessage(
+                    ChatMessage.Role.SYSTEM,
+                    "Ты полезный AI ассистент с доступом к базе знаний. " +
+                            "Отвечай точно и информативно."
+            );
+            chatHistory.add(systemMsg);
+        }
     }
 
-    // Основной метод для вопросов
+    // Загрузка истории чата из файла
+    private void loadChatHistory() {
+        List<ChatMessage> loadedHistory = chatHistoryService.loadChatHistory();
+        if (loadedHistory != null && !loadedHistory.isEmpty()) {
+            chatHistory.addAll(loadedHistory);
+            System.out.println("Загружена история чата: " + (chatHistory.size() - 1) + " сообщений");
+        }
+    }
+
+    // Основной метод для вопросов с учетом истории
     public String askQuestion(String question) {
         System.out.println("\n=== Вопрос: " + question + " ===");
 
@@ -44,16 +59,25 @@ public class AssistantService {
         ChatMessage userMsg = new ChatMessage(ChatMessage.Role.USER, question);
         chatHistory.add(userMsg);
 
-        // Получаем ответ с использованием RAG
-        String answer = ragService.getAnswerWithRAG(question);
+        // Получаем ответ с использованием RAG и истории чата
+        String answer = ragService.getAnswerWithRAGAndHistory(question, chatHistory);
 
         // Добавляем ответ в историю
         ChatMessage assistantMsg = new ChatMessage(ChatMessage.Role.ASSISTANT, answer);
         chatHistory.add(assistantMsg);
 
-        // Сохраняем историю (максимум 20 сообщений)
-        if (chatHistory.size() > 20) {
-            chatHistory.remove(1); // Удаляем самое старое сообщение (после системного)
+        // Сохраняем историю в файл
+        chatHistoryService.saveChatHistory(chatHistory);
+
+        // Ограничиваем размер истории (максимум 50 сообщений)
+        if (chatHistory.size() > 50) {
+            // Оставляем системное сообщение и последние 49 сообщений
+            ChatMessage systemMsg = chatHistory.get(0);
+            List<ChatMessage> newHistory = new ArrayList<>();
+            newHistory.add(systemMsg);
+            newHistory.addAll(chatHistory.subList(chatHistory.size() - 49, chatHistory.size()));
+            chatHistory.clear();
+            chatHistory.addAll(newHistory);
         }
 
         return answer;
@@ -131,10 +155,24 @@ public class AssistantService {
 
     // Очистка истории чата
     public void clearChatHistory() {
-        // Оставляем только системное сообщение
-        ChatMessage systemMsg = chatHistory.get(0);
+        // Оставляем только системное сообщение или создаем новое
+        ChatMessage systemMsg;
+        if (!chatHistory.isEmpty() && chatHistory.get(0).getRole() == ChatMessage.Role.SYSTEM) {
+            systemMsg = chatHistory.get(0);
+        } else {
+            systemMsg = new ChatMessage(
+                    ChatMessage.Role.SYSTEM,
+                    "Ты полезный AI ассистент с доступом к базе знаний. " +
+                            "Отвечай точно и информативно."
+            );
+        }
+
         chatHistory.clear();
         chatHistory.add(systemMsg);
+
+        // Сохраняем очищенную историю
+        chatHistoryService.saveChatHistory(chatHistory);
+
         System.out.println("История чата очищена.");
     }
 }

@@ -8,6 +8,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class OllamaService {
     private final HttpClient httpClient;
@@ -39,7 +43,7 @@ public class OllamaService {
                     .build();
 
             if (stream) {
-                return sendStreamingRequest(request);
+                return sendStreamingRequest(request, true);
             } else {
                 return sendBlockingRequest(request);
             }
@@ -50,7 +54,7 @@ public class OllamaService {
         }
     }
 
-    // Метод для генерации (без истории)
+    // Метод для генерации (без истории) с потоковой передачей
     public String sendGenerateRequest(String prompt, boolean stream) {
         try {
             JSONObject requestJson = new JSONObject();
@@ -65,7 +69,7 @@ public class OllamaService {
                     .build();
 
             if (stream) {
-                return sendStreamingRequest(request);
+                return sendStreamingRequest(request, false);
             } else {
                 return sendBlockingRequest(request);
             }
@@ -74,6 +78,11 @@ public class OllamaService {
             System.err.println("Ошибка отправки запроса к OLLAMA: " + e.getMessage());
             return "Извините, произошла ошибка при обращении к модели: " + e.getMessage();
         }
+    }
+
+    // Новый метод для генерации с потоковой передачей по умолчанию
+    public String sendGenerateRequestWithStream(String prompt) {
+        return sendGenerateRequest(prompt, true);
     }
 
     private String sendBlockingRequest(HttpRequest request) throws Exception {
@@ -97,34 +106,48 @@ public class OllamaService {
         }
     }
 
-    private String sendStreamingRequest(HttpRequest request) throws Exception {
+    private String sendStreamingRequest(HttpRequest request, boolean isChat) throws Exception {
         StringBuilder fullResponse = new StringBuilder();
 
-        httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
+        CompletableFuture<Void> future = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
                 .thenAccept(response -> {
                     if (response.statusCode() == 200) {
                         response.body().forEach(line -> {
                             if (!line.trim().isEmpty()) {
                                 try {
                                     JSONObject json = new JSONObject(line);
-                                    if (json.has("message")) {
-                                        String content = json.getJSONObject("message")
-                                                .getString("content");
-                                        System.out.print(content);
-                                        fullResponse.append(content);
+                                    String content = null;
+
+                                    if (isChat && json.has("message")) {
+                                        content = json.getJSONObject("message").getString("content");
                                     } else if (json.has("response")) {
-                                        String content = json.getString("response");
+                                        content = json.getString("response");
+                                    }
+
+                                    if (content != null && !content.isEmpty()) {
                                         System.out.print(content);
                                         fullResponse.append(content);
                                     }
+
                                 } catch (Exception e) {
-                                    System.err.println("Ошибка парсинга JSON: " + e.getMessage());
+                                    // Пропускаем ошибки парсинга для потоковых данных
                                 }
                             }
                         });
+                    } else {
+                        System.err.println("HTTP ошибка: " + response.statusCode());
                     }
-                })
-                .join();
+                });
+
+        try {
+            // Ждем завершения с таймаутом
+            future.get(120, TimeUnit.SECONDS); // 2 минуты таймаут
+        } catch (TimeoutException e) {
+            System.err.println("Таймаут при получении потокового ответа");
+            future.cancel(true);
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("Ошибка при получении потокового ответа: " + e.getMessage());
+        }
 
         return fullResponse.toString();
     }

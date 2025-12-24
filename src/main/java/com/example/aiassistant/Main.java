@@ -9,6 +9,7 @@ import java.util.Scanner;
 public class Main {
     public static void main(String[] args) {
         System.out.println("=== Локальный AI Ассистент с RAG ===");
+        System.out.println("Версия с сохранением истории и потоковым выводом");
         System.out.println("Инициализация...\n");
 
         try {
@@ -19,6 +20,7 @@ public class Main {
             System.out.println("✓ База знаний загружена в память");
             System.out.println("✓ Документов в базе: " + vectorDB.getDocumentCount());
             System.out.println("✓ Текущая модель: " + assistant.getCurrentModel());
+            System.out.println("✓ История чата загружена");
             System.out.println("✓ Доступно памяти для RAG: ~70 ГБ");
             System.out.println("\n" + "=".repeat(50) + "\n");
 
@@ -31,7 +33,7 @@ public class Main {
             boolean running = true;
             while (running) {
                 printMenu();
-                System.out.print("Выберите действие (1-6): ");
+                System.out.print("Выберите действие (1-7): ");
 
                 String choice = scanner.nextLine().trim();
 
@@ -52,6 +54,9 @@ public class Main {
                         searchInKnowledgeBase(scanner, assistant);
                         break;
                     case "6":
+                        clearChatHistory(scanner, assistant);
+                        break;
+                    case "7":
                         System.out.println("\nВыход из программы...");
                         running = false;
                         break;
@@ -70,12 +75,13 @@ public class Main {
 
     private static void printMenu() {
         System.out.println("\n=== Меню ===");
-        System.out.println("1. Задать вопрос ассистенту");
+        System.out.println("1. Задать вопрос ассистенту (с историей и потоковым выводом)");
         System.out.println("2. Добавить новые знания в базу");
         System.out.println("3. Показать статистику");
         System.out.println("4. Сменить модель LLM");
         System.out.println("5. Поиск в базе знаний");
-        System.out.println("6. Выход");
+        System.out.println("6. Очистить историю чата");
+        System.out.println("7. Выход");
         System.out.println("=".repeat(30));
     }
 
@@ -90,9 +96,8 @@ public class Main {
 
         System.out.println("\n" + "=".repeat(60));
         String answer = assistant.askQuestion(question);
-        System.out.println(answer);
         System.out.println("\n" + "=".repeat(60));
-        System.out.println("\n✓ Ответ получен");
+        System.out.println("\n✓ Ответ получен и сохранен в истории");
     }
 
     private static void addKnowledge(Scanner scanner, AssistantService assistant) {
@@ -116,7 +121,7 @@ public class Main {
 
         if (content.length() > 0) {
             assistant.addKnowledge(content.toString().trim(), source);
-            System.out.println("✓ Знания успешно добавлены");
+            System.out.println("✓ Знания успешно добавлены и сохранены в файл");
         } else {
             System.out.println("Текст не был введен.");
         }
@@ -132,6 +137,20 @@ public class Main {
         System.out.println("Текущая LLM модель: " + stats.getString("llm_model"));
         System.out.println("Модель для эмбеддингов: " + stats.getString("embedding_model"));
         System.out.println("Сообщений в истории чата: " + stats.getInt("chat_history_size"));
+
+        // Показываем первые 5 сообщений истории
+        System.out.println("\nПоследние сообщения из истории:");
+        var history = assistant.getChatHistory();
+        int start = Math.max(0, history.size() - 5);
+        for (int i = start; i < history.size(); i++) {
+            var msg = history.get(i);
+            String role = msg.getRole().name();
+            String content = msg.getContent();
+            if (content.length() > 50) {
+                content = content.substring(0, 47) + "...";
+            }
+            System.out.println("  " + role + ": " + content);
+        }
     }
 
     private static void changeModel(Scanner scanner, AssistantService assistant) {
@@ -156,6 +175,18 @@ public class Main {
 
         if (!query.isEmpty()) {
             assistant.searchKnowledgeBase(query);
+        }
+    }
+
+    private static void clearChatHistory(Scanner scanner, AssistantService assistant) {
+        System.out.print("\nВы уверены, что хотите очистить историю чата? (y/N): ");
+        String confirm = scanner.nextLine().trim();
+
+        if (confirm.equalsIgnoreCase("y") || confirm.equalsIgnoreCase("yes")) {
+            assistant.clearChatHistory();
+            System.out.println("✓ История чата очищена");
+        } else {
+            System.out.println("Очистка отменена");
         }
     }
 

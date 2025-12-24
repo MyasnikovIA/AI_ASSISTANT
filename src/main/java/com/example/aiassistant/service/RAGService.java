@@ -1,5 +1,6 @@
 package com.example.aiassistant.service;
 
+import com.example.aiassistant.model.ChatMessage;
 import com.example.aiassistant.model.KnowledgeDocument;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -10,16 +11,22 @@ public class RAGService {
     private final EmbeddingService embeddingService;
     private final OllamaService ollamaService;
 
-    // Шаблон промпта для RAG
+    // Шаблон промпта для RAG с историей
     private static final String RAG_PROMPT_TEMPLATE = """
-        Используй следующую информацию из базы знаний для ответа на вопрос.
-        Если в предоставленной информации есть ответ - используй её.
-        Если информации недостаточно - используй свои знания и укажи это.
+        Ты полезный AI ассистент с доступом к базе знаний.
         
-        Информация из базы знаний:
+        История предыдущего диалога:
+        {history}
+        
+        Информация из базы знаний для текущего вопроса:
         {context}
         
-        Вопрос: {query}
+        Текущий вопрос пользователя: {query}
+        
+        Учти историю диалога и предоставленную информацию из базы знаний.
+        Если в информации из базы знаний есть ответ - используй её.
+        Если информации недостаточно - используй свои знания.
+        Отвечай точно, информативно и учитывай контекст всего диалога.
         
         Ответ:""";
 
@@ -31,8 +38,8 @@ public class RAGService {
         this.ollamaService = ollamaService;
     }
 
-    // Основной метод получения ответа с RAG
-    public String getAnswerWithRAG(String question) {
+    // Основной метод получения ответа с RAG и историей
+    public String getAnswerWithRAGAndHistory(String question, List<ChatMessage> chatHistory) {
         System.out.println("\n[Поиск релевантной информации в базе знаний...]");
 
         // Получаем эмбеддинг вопроса
@@ -43,24 +50,52 @@ public class RAGService {
                 question, queryEmbedding, 5, 0.5
         );
 
+        // Формируем историю диалога (исключая системное сообщение и текущий вопрос)
+        String historyText = formatChatHistory(chatHistory);
+
         // Формируем промпт
         String prompt;
-        if (context != null) {
+        if (context != null && !context.trim().isEmpty()) {
             prompt = RAG_PROMPT_TEMPLATE
+                    .replace("{history}", historyText)
                     .replace("{context}", context)
                     .replace("{query}", question);
 
-            System.out.println("[Найдено релевантной информации. Формирую ответ...]");
+            System.out.println("[Найдено релевантной информации. Формирую ответ с учетом истории...]");
         } else {
-            prompt = "Вопрос: " + question + "\n\nОтветь на вопрос, используя свои знания:";
-            System.out.println("[Релевантная информация не найдена. Использую знания модели...]");
+            prompt = "История диалога:\n" + historyText +
+                    "\n\nТекущий вопрос пользователя: " + question +
+                    "\n\nОтветь на вопрос, используя свои знания и учитывая историю диалога:";
+            System.out.println("[Релевантная информация не найдена. Использую знания модели и историю...]");
         }
 
-        // Отправляем запрос к LLM
-        return ollamaService.sendGenerateRequest(prompt, false);
+        // Отправляем запрос к LLM с потоковой передачей
+        System.out.println("\n[Генерация ответа...]");
+        System.out.println("-".repeat(50));
+        String answer = ollamaService.sendGenerateRequestWithStream(prompt);
+        System.out.println("\n" + "-".repeat(50));
+
+        return answer;
     }
 
-    // Добавление новых знаний
+    // Форматирование истории чата для промпта
+    private String formatChatHistory(List<ChatMessage> chatHistory) {
+        StringBuilder history = new StringBuilder();
+
+        // Пропускаем последнее сообщение (это текущий вопрос)
+        int endIndex = chatHistory.size() - 1;
+        if (endIndex <= 1) return ""; // Только системное сообщение и текущий вопрос
+
+        for (int i = 1; i < endIndex; i++) { // Начинаем с 1, пропускаем системное сообщение
+            ChatMessage message = chatHistory.get(i);
+            String role = message.getRole() == ChatMessage.Role.USER ? "Пользователь" : "Ассистент";
+            history.append(role).append(": ").append(message.getContent()).append("\n");
+        }
+
+        return history.toString();
+    }
+
+    // Добавление новых знаний с сохранением в файл
     public void addKnowledge(String content, String source) {
         System.out.println("\n[Добавление новых знаний в базу...]");
 
@@ -70,7 +105,7 @@ public class RAGService {
         // Получаем эмбеддинг
         double[] embedding = embeddingService.getEmbedding(content);
 
-        // Добавляем в векторную БД
+        // Добавляем в векторную БД (которая сама сохраняет в файл)
         vectorDB.addDocument(document, embedding);
 
         System.out.println("[Знания успешно добавлены. ID: " + document.getId() + "]");

@@ -38,13 +38,53 @@ public class KnowledgeDocument {
     }
 
     // Геттеры и сеттеры
-    public String getId() { return id; }
-    public String getContent() { return content; }
-    public String getSource() { return source; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public JSONObject getMetadata() { return metadata; }
-    public double[] getEmbedding() { return embedding; }
-    public void setEmbedding(double[] embedding) { this.embedding = embedding; }
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public JSONObject getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(JSONObject metadata) {
+        this.metadata = metadata;
+    }
+
+    public double[] getEmbedding() {
+        return embedding;
+    }
+
+    public void setEmbedding(double[] embedding) {
+        this.embedding = embedding;
+    }
 
     public JSONObject toJSON() {
         JSONObject json = new JSONObject();
@@ -70,17 +110,12 @@ public class KnowledgeDocument {
 
             // Если есть ID в JSON, используем его
             if (json.has("id")) {
-                // Внутреннее поле, поэтому нужно рефлексия или сеттер
-                // Для простоты создаем новый объект
-                doc = new KnowledgeDocument(content, source, metadata);
-                try {
-                    // Используем reflection для установки ID
-                    java.lang.reflect.Field idField = KnowledgeDocument.class.getDeclaredField("id");
-                    idField.setAccessible(true);
-                    idField.set(doc, json.getString("id"));
-                } catch (Exception e) {
-                    System.err.println("Не удалось установить ID из JSON: " + e.getMessage());
-                }
+                doc.setId(json.getString("id"));
+            }
+
+            // Если есть createdAt в JSON, используем его
+            if (json.has("createdAt")) {
+                doc.setCreatedAt(LocalDateTime.parse(json.getString("createdAt")));
             }
 
             return doc;
@@ -88,5 +123,17 @@ public class KnowledgeDocument {
             System.err.println("Ошибка создания KnowledgeDocument из JSON: " + e.getMessage());
             return new KnowledgeDocument("", "error");
         }
+    }
+
+    @Override
+    public String toString() {
+        return "KnowledgeDocument{" +
+                "id='" + id + '\'' +
+                ", content='" + (content.length() > 50 ? content.substring(0, 47) + "..." : content) + '\'' +
+                ", source='" + source + '\'' +
+                ", createdAt=" + createdAt +
+                ", metadata=" + metadata +
+                ", embedding=" + (embedding != null ? "[" + embedding.length + " dimensions]" : "null") +
+                '}';
     }
 }
