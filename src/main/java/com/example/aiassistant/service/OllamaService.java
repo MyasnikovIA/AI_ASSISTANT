@@ -12,11 +12,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 
 public class OllamaService {
     private final HttpClient httpClient;
     private String ollamaHost;
     private String modelName;
+    private Consumer<String> streamingCallback;
 
     public OllamaService(String ollamaHost, String modelName) {
         this.httpClient = HttpClient.newBuilder()
@@ -26,6 +28,11 @@ public class OllamaService {
 
         this.ollamaHost = ollamaHost;
         this.modelName = modelName;
+    }
+
+    // Установка callback для потокового вывода
+    public void setStreamingCallback(Consumer<String> callback) {
+        this.streamingCallback = callback;
     }
 
     // Метод для чата с потоковой передачей
@@ -122,10 +129,17 @@ public class OllamaService {
                                         content = json.getJSONObject("message").getString("content");
                                     } else if (json.has("response")) {
                                         content = json.getString("response");
+                                    } else if (json.has("message") && json.getJSONObject("message").has("content")) {
+                                        content = json.getJSONObject("message").getString("content");
                                     }
 
                                     if (content != null && !content.isEmpty()) {
-                                        System.out.print(content);
+                                        // Вызываем callback, если он установлен
+                                        if (streamingCallback != null) {
+                                            streamingCallback.accept(content);
+                                        } else {
+                                            System.out.print(content);
+                                        }
                                         fullResponse.append(content);
                                     }
 

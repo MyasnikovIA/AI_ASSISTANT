@@ -9,7 +9,7 @@ import java.util.Scanner;
 public class Main {
     public static void main(String[] args) {
         System.out.println("=== Локальный AI Ассистент с RAG ===");
-        System.out.println("Версия с сохранением истории и потоковым выводом");
+        System.out.println("Версия с сохранением истории, потоковым выводом и озвучкой");
         System.out.println("Инициализация...\n");
 
         try {
@@ -21,6 +21,7 @@ public class Main {
             System.out.println("✓ Документов в базе: " + vectorDB.getDocumentCount());
             System.out.println("✓ Текущая модель: " + assistant.getCurrentModel());
             System.out.println("✓ История чата загружена");
+            System.out.println("✓ Озвучка: " + (assistant.isSpeechEnabled() ? "ВКЛ" : "ВЫКЛ"));
             System.out.println("✓ Доступно памяти для RAG: ~70 ГБ");
             System.out.println("\n" + "=".repeat(50) + "\n");
 
@@ -33,7 +34,7 @@ public class Main {
             boolean running = true;
             while (running) {
                 printMenu();
-                System.out.print("Выберите действие (1-7): ");
+                System.out.print("Выберите действие (1-8): ");
 
                 String choice = scanner.nextLine().trim();
 
@@ -54,9 +55,12 @@ public class Main {
                         searchInKnowledgeBase(scanner, assistant);
                         break;
                     case "6":
-                        clearChatHistory(scanner, assistant);
+                        toggleSpeech(scanner, assistant);
                         break;
                     case "7":
+                        clearChatHistory(scanner, assistant);
+                        break;
+                    case "8":
                         System.out.println("\nВыход из программы...");
                         running = false;
                         break;
@@ -80,8 +84,9 @@ public class Main {
         System.out.println("3. Показать статистику");
         System.out.println("4. Сменить модель LLM");
         System.out.println("5. Поиск в базе знаний");
-        System.out.println("6. Очистить историю чата");
-        System.out.println("7. Выход");
+        System.out.println("6. Включить/выключить озвучку");
+        System.out.println("7. Очистить историю чата");
+        System.out.println("8. Выход");
         System.out.println("=".repeat(30));
     }
 
@@ -137,6 +142,7 @@ public class Main {
         System.out.println("Текущая LLM модель: " + stats.getString("llm_model"));
         System.out.println("Модель для эмбеддингов: " + stats.getString("embedding_model"));
         System.out.println("Сообщений в истории чата: " + stats.getInt("chat_history_size"));
+        System.out.println("Озвучка: " + (stats.getBoolean("speech_enabled") ? "ВКЛ" : "ВЫКЛ"));
 
         // Показываем первые 5 сообщений истории
         System.out.println("\nПоследние сообщения из истории:");
@@ -175,6 +181,22 @@ public class Main {
 
         if (!query.isEmpty()) {
             assistant.searchKnowledgeBase(query);
+        }
+    }
+
+    private static void toggleSpeech(Scanner scanner, AssistantService assistant) {
+        boolean currentState = assistant.isSpeechEnabled();
+        boolean newState = !currentState;
+
+        assistant.setSpeechEnabled(newState);
+
+        System.out.println("✓ Озвучка " + (newState ? "включена" : "выключена"));
+
+        // Демонстрация озвучки, если включили
+        if (newState) {
+            System.out.println("\n[Демонстрация озвучки...]");
+            com.example.aiassistant.util.SpeakToText.speak("Озвучка активирована. Теперь я буду озвучивать ответы.");
+            System.out.println("Демонстрация завершена.");
         }
     }
 

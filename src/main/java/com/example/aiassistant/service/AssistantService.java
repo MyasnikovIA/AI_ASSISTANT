@@ -1,6 +1,7 @@
 package com.example.aiassistant.service;
 
 import com.example.aiassistant.model.ChatMessage;
+import com.example.aiassistant.util.SpeakToText;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayList;
@@ -11,6 +12,8 @@ public class AssistantService {
     private final OllamaService ollamaService;
     private final List<ChatMessage> chatHistory;
     private final ChatHistoryService chatHistoryService;
+    private final SpeakToText speakToText;
+    private boolean speechEnabled = false;
 
     // Конфигурация
     private static final String DEFAULT_MODEL = "deepseek-coder-v2:16b";
@@ -27,6 +30,7 @@ public class AssistantService {
         this.ragService = new RAGService(vectorDB, embeddingService, ollamaService);
         this.chatHistory = new ArrayList<>();
         this.chatHistoryService = new ChatHistoryService();
+        this.speakToText = new SpeakToText();
 
         // Загружаем историю чата из файла
         loadChatHistory();
@@ -51,7 +55,7 @@ public class AssistantService {
         }
     }
 
-    // Основной метод для вопросов с учетом истории
+    // Основной метод для вопросов с учетом истории и озвучкой
     public String askQuestion(String question) {
         System.out.println("\n=== Вопрос: " + question + " ===");
 
@@ -60,7 +64,7 @@ public class AssistantService {
         chatHistory.add(userMsg);
 
         // Получаем ответ с использованием RAG и истории чата
-        String answer = ragService.getAnswerWithRAGAndHistory(question, chatHistory);
+        String answer = ragService.getAnswerWithRAGAndHistory(question, chatHistory, speechEnabled);
 
         // Добавляем ответ в историю
         ChatMessage assistantMsg = new ChatMessage(ChatMessage.Role.ASSISTANT, answer);
@@ -80,7 +84,52 @@ public class AssistantService {
             chatHistory.addAll(newHistory);
         }
 
+        // Озвучиваем ответ, если включена озвучка
+        if (speechEnabled) {
+            speakAnswer(answer);
+        }
+
         return answer;
+    }
+
+    // Озвучивание ответа по предложениям, исключая код
+    private void speakAnswer(String answer) {
+        System.out.println("\n[Озвучивание ответа...]");
+
+        // Обрабатываем ответ для озвучки
+        String textForSpeech = prepareTextForSpeech(answer);
+
+        // Разбиваем на предложения и озвучиваем
+        String[] sentences = textForSpeech.split("(?<=[.!?])\\s+");
+        for (String sentence : sentences) {
+            if (!sentence.trim().isEmpty()) {
+                speakToText.speak(sentence.trim());
+            }
+        }
+    }
+
+    // Подготовка текста для озвучки - удаление кода в тройных кавычках
+    private String prepareTextForSpeech(String text) {
+        // Удаляем блоки кода в тройных кавычках
+        String result = text.replaceAll("```[\\s\\S]*?```", "");
+
+        // Также удаляем одинарные кавычки для кода, если они есть
+        result = result.replaceAll("`[^`]*`", "");
+
+        // Удаляем лишние пробелы и переносы строк
+        result = result.replaceAll("\\s+", " ").trim();
+
+        return result;
+    }
+
+    // Включение/выключение озвучки
+    public void setSpeechEnabled(boolean enabled) {
+        this.speechEnabled = enabled;
+        System.out.println("Озвучка " + (enabled ? "включена" : "выключена"));
+    }
+
+    public boolean isSpeechEnabled() {
+        return speechEnabled;
     }
 
     // Добавление знаний
@@ -117,6 +166,7 @@ public class AssistantService {
         // Добавляем информацию о чате
         stats.put("chat_history_size", chatHistory.size() - 1); // Без системного
         stats.put("current_model", getCurrentModel());
+        stats.put("speech_enabled", speechEnabled);
 
         return stats;
     }

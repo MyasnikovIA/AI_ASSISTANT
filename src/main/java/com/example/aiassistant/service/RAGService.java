@@ -2,6 +2,7 @@ package com.example.aiassistant.service;
 
 import com.example.aiassistant.model.ChatMessage;
 import com.example.aiassistant.model.KnowledgeDocument;
+import com.example.aiassistant.util.SpeakToText;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.List;
@@ -10,6 +11,8 @@ public class RAGService {
     private final VectorDBService vectorDB;
     private final EmbeddingService embeddingService;
     private final OllamaService ollamaService;
+    private final SpeakToText speakToText;
+    private boolean inCodeBlock = false;
 
     // Шаблон промпта для RAG с историей
     private static final String RAG_PROMPT_TEMPLATE = """
@@ -36,10 +39,11 @@ public class RAGService {
         this.vectorDB = vectorDB;
         this.embeddingService = embeddingService;
         this.ollamaService = ollamaService;
+        this.speakToText = new SpeakToText();
     }
 
     // Основной метод получения ответа с RAG и историей
-    public String getAnswerWithRAGAndHistory(String question, List<ChatMessage> chatHistory) {
+    public String getAnswerWithRAGAndHistory(String question, List<ChatMessage> chatHistory, boolean speechEnabled) {
         System.out.println("\n[Поиск релевантной информации в базе знаний...]");
 
         // Получаем эмбеддинг вопроса
@@ -72,10 +76,69 @@ public class RAGService {
         // Отправляем запрос к LLM с потоковой передачей
         System.out.println("\n[Генерация ответа...]");
         System.out.println("-".repeat(50));
-        String answer = ollamaService.sendGenerateRequestWithStream(prompt);
+
+        StringBuilder fullResponse = new StringBuilder();
+        StringBuilder currentSentence = new StringBuilder();
+
+        // Создаем обработчик для потокового вывода
+        ollamaService.setStreamingCallback(token -> {
+            // Обработка токенов для определения блоков кода
+            if (token.contains("```")) {
+                inCodeBlock = !inCodeBlock;
+            }
+
+            // Выводим только если не внутри блока кода
+            if (!inCodeBlock) {
+                System.out.print(token);
+                fullResponse.append(token);
+                currentSentence.append(token);
+
+                // Если включена озвучка, проверяем конец предложения
+                if (speechEnabled) {
+                    processSentenceForSpeech(currentSentence, token);
+                }
+            }
+        });
+
+        // Получаем ответ
+        String answer = ollamaService.sendGenerateRequest(prompt, true);
+
         System.out.println("\n" + "-".repeat(50));
 
-        return answer;
+        return fullResponse.toString();
+    }
+
+    // Обработка предложений для озвучки
+    private void processSentenceForSpeech(StringBuilder currentSentence, String token) {
+        // Проверяем, закончилось ли предложение
+        if (token.matches(".*[.!?]\\s*$")) {
+            String sentence = currentSentence.toString();
+
+            // Удаляем блоки кода из предложения перед озвучкой
+            String cleanSentence = prepareTextForSpeech(sentence);
+
+            if (!cleanSentence.trim().isEmpty()) {
+                // Озвучиваем предложение
+                speakToText.speak(cleanSentence.trim());
+            }
+
+            // Очищаем буфер для следующего предложения
+            currentSentence.setLength(0);
+        }
+    }
+
+    // Подготовка текста для озвучки - удаление кода в тройных кавычках
+    private String prepareTextForSpeech(String text) {
+        // Удаляем блоки кода в тройных кавычках
+        String result = text.replaceAll("```[\\s\\S]*?```", "");
+
+        // Также удаляем одинарные кавычки для кода
+        result = result.replaceAll("`[^`]*`", "");
+
+        // Удаляем лишние пробелы и переносы строк
+        result = result.replaceAll("\\s+", " ").trim();
+
+        return result;
     }
 
     // Форматирование истории чата для промпта
