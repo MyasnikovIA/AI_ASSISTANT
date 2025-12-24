@@ -21,6 +21,8 @@ public class Main {
             System.out.println("✓ Документов в базе: " + vectorDB.getDocumentCount());
             System.out.println("✓ Текущая модель: " + assistant.getCurrentModel());
             System.out.println("✓ Модель для эмбеддингов: " + assistant.getEmbeddingModel());
+            System.out.println("✓ Режим работы: " + (assistant.isUseChatMode() ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
+            System.out.println("✓ Использование кэша: " + (assistant.isUseCache() ? "ВКЛ" : "ВЫКЛ"));
             System.out.println("✓ История чата загружена");
             System.out.println("✓ Озвучка: " + (assistant.isSpeechEnabled() ? "ВКЛ" : "ВЫКЛ"));
             System.out.println("✓ Доступно памяти для RAG: ~70 ГБ");
@@ -35,7 +37,7 @@ public class Main {
             boolean running = true;
             while (running) {
                 printMenu();
-                System.out.print("Выберите действие (1-12): ");
+                System.out.print("Выберите действие (1-15): ");
 
                 String choice = scanner.nextLine().trim();
 
@@ -74,6 +76,15 @@ public class Main {
                         pullNewModel(scanner, assistant);
                         break;
                     case "12":
+                        toggleChatMode(scanner, assistant);
+                        break;
+                    case "13":
+                        toggleCache(scanner, assistant);
+                        break;
+                    case "14":
+                        manageCache(scanner, assistant);
+                        break;
+                    case "15":
                         System.out.println("\nВыход из программы...");
                         running = false;
                         break;
@@ -103,13 +114,18 @@ public class Main {
         System.out.println("9. Сменить модель для эмбеддингов");
         System.out.println("10. Показать все доступные модели");
         System.out.println("11. Загрузить новую модель");
-        System.out.println("12. Выход");
+        System.out.println("12. Переключить режим работы (чат/генерация)");
+        System.out.println("13. Включить/выключить кэш");
+        System.out.println("14. Управление кэшем");
+        System.out.println("15. Выход");
         System.out.println("=".repeat(30));
     }
 
     private static void askQuestion(Scanner scanner, AssistantService assistant) {
         System.out.println("\n=== Задать вопрос ассистенту ===");
         System.out.println("Текущая модель: " + assistant.getCurrentModel());
+        System.out.println("Режим работы: " + (assistant.isUseChatMode() ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
+        System.out.println("Кэш: " + (assistant.isUseCache() ? "ВКЛ" : "ВЫКЛ"));
         System.out.println("Введите ваш вопрос (можно многострочный):");
         System.out.println("Для завершения введите 'end' на отдельной строке");
         System.out.println("=".repeat(50));
@@ -193,8 +209,25 @@ public class Main {
         System.out.println("Использование памяти: " + stats.getString("memory_usage_percent"));
         System.out.println("Текущая LLM модель: " + stats.getString("llm_model"));
         System.out.println("Модель для эмбеддингов: " + stats.getString("embedding_model"));
+        System.out.println("Режим работы: " + (stats.getBoolean("use_chat_mode") ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
+        System.out.println("Использование кэша: " + (stats.getBoolean("use_cache") ? "ВКЛ" : "ВЫКЛ"));
         System.out.println("Сообщений в истории чата: " + stats.getInt("chat_history_size"));
         System.out.println("Озвучка: " + (stats.getBoolean("speech_enabled") ? "ВКЛ" : "ВЫКЛ"));
+
+        // Показываем информацию о кэше, если она есть
+        if (stats.has("cache_info")) {
+            JSONObject cacheInfo = stats.getJSONObject("cache_info");
+            System.out.println("\nИнформация о кэше:");
+            if (cacheInfo.has("size")) {
+                System.out.println("  Размер кэша: " + cacheInfo.getString("size"));
+            }
+            if (cacheInfo.has("hits")) {
+                System.out.println("  Попаданий в кэш: " + cacheInfo.getInt("hits"));
+            }
+            if (cacheInfo.has("misses")) {
+                System.out.println("  Промахов кэша: " + cacheInfo.getInt("misses"));
+            }
+        }
 
         // Показываем первые 5 сообщений истории
         System.out.println("\nПоследние сообщения из истории:");
@@ -426,6 +459,91 @@ public class Main {
         }
     }
 
+    // Новый метод для переключения режима работы
+    private static void toggleChatMode(Scanner scanner, AssistantService assistant) {
+        boolean currentMode = assistant.isUseChatMode();
+        boolean newMode = !currentMode;
+
+        assistant.toggleChatMode(newMode);
+        System.out.println("✓ Режим работы изменен на: " + (newMode ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
+
+        // Объяснение различий режимов
+        System.out.println("\nРазличия режимов:");
+        System.out.println("- ЧАТ режим: использует историю диалога как контекст, лучше для многоходовых диалогов");
+        System.out.println("- ГЕНЕРАЦИЯ режим: использует только текущий промпт, быстрее для простых запросов");
+    }
+
+    // Новый метод для переключения кэша
+    private static void toggleCache(Scanner scanner, AssistantService assistant) {
+        boolean currentCache = assistant.isUseCache();
+        boolean newCache = !currentCache;
+
+        assistant.toggleCache(newCache);
+        System.out.println("✓ Использование кэша: " + (newCache ? "ВКЛ" : "ВЫКЛ"));
+
+        // Объяснение использования кэша
+        System.out.println("\nИспользование кэша:");
+        System.out.println("- ВКЛ: повторные запросы выполняются быстрее, экономит ресурсы");
+        System.out.println("- ВЫКЛ: каждый запрос обрабатывается заново, полезно для тестирования");
+    }
+
+    // Новый метод для управления кэшем
+    private static void manageCache(Scanner scanner, AssistantService assistant) {
+        System.out.println("\n=== Управление кэшем ===");
+        System.out.println("1. Очистить кэш модели");
+        System.out.println("2. Показать информацию о кэше");
+        System.out.println("3. Назад");
+
+        System.out.print("Выберите действие: ");
+        String choice = scanner.nextLine().trim();
+
+        switch (choice) {
+            case "1":
+                clearCache(scanner, assistant);
+                break;
+            case "2":
+                showCacheInfo(scanner, assistant);
+                break;
+            case "3":
+                return;
+            default:
+                System.out.println("Неверный выбор");
+        }
+    }
+
+    // Новый метод для очистки кэша
+    private static void clearCache(Scanner scanner, AssistantService assistant) {
+        System.out.print("\nВы уверены, что хотите очистить кэш модели? (y/N): ");
+        String confirm = scanner.nextLine().trim();
+
+        if (confirm.equalsIgnoreCase("y") || confirm.equalsIgnoreCase("yes")) {
+            if (assistant.clearCache()) {
+                System.out.println("✓ Кэш модели успешно очищен");
+            } else {
+                System.out.println("✗ Не удалось очистить кэш");
+            }
+        } else {
+            System.out.println("Очистка кэша отменена");
+        }
+    }
+
+    // Новый метод для отображения информации о кэше
+    private static void showCacheInfo(Scanner scanner, AssistantService assistant) {
+        JSONObject cacheInfo = assistant.getCacheInfo();
+        if (cacheInfo != null) {
+            System.out.println("\n=== Информация о кэше ===");
+            System.out.println("Размер кэша: " + cacheInfo.optString("size", "неизвестно"));
+            System.out.println("Попаданий в кэш: " + cacheInfo.optInt("hits", 0));
+            System.out.println("Промахов кэша: " + cacheInfo.optInt("misses", 0));
+            System.out.println("Эффективность кэша: " +
+                    (cacheInfo.optInt("hits", 0) + cacheInfo.optInt("misses", 0) > 0 ?
+                            String.format("%.1f%%", (float) cacheInfo.optInt("hits", 0) /
+                                    (cacheInfo.optInt("hits", 0) + cacheInfo.optInt("misses", 0)) * 100) : "0%"));
+        } else {
+            System.out.println("Не удалось получить информацию о кэше");
+        }
+    }
+
     // Новый метод для отображения информации о модели
     private static void showModelInfo(Scanner scanner, AssistantService assistant) {
         System.out.print("\nВведите название модели для просмотра информации (оставьте пустым для текущей): ");
@@ -474,7 +592,7 @@ public class Main {
                 System.out.println("✗ Не удалось удалить модель");
             }
         } else {
-            System.out.println("Удаление отменено");
+            System.out.println("Удаление отменена");
         }
     }
 

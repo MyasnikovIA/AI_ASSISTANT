@@ -57,6 +57,8 @@ public class AssistantService {
     public String askQuestion(String question) {
         System.out.println("\n=== Вопрос: " + question + " ===");
         System.out.println("Используемая модель: " + getCurrentModel());
+        System.out.println("Режим работы: " + (ollamaService.isUseChatMode() ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
+        System.out.println("Кэш: " + (ollamaService.isUseCache() ? "ВКЛ" : "ВЫКЛ"));
 
         // Добавляем вопрос в историю
         ChatMessage userMsg = new ChatMessage(ChatMessage.Role.USER, question);
@@ -180,6 +182,31 @@ public class AssistantService {
         }
     }
 
+    // Переключение режима работы (чат/генерация)
+    public void toggleChatMode(boolean useChatMode) {
+        ragService.toggleChatMode(useChatMode);
+        System.out.println("Режим работы изменен на: " + (useChatMode ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
+    }
+
+    public boolean isUseChatMode() {
+        return ollamaService.isUseChatMode();
+    }
+
+    // Переключение использования кэша
+    public void toggleCache(boolean useCache) {
+        ragService.toggleCache(useCache);
+        System.out.println("Использование кэша: " + (useCache ? "ВКЛ" : "ВЫКЛ"));
+    }
+
+    public boolean isUseCache() {
+        return ollamaService.isUseCache();
+    }
+
+    // Очистка кэша модели
+    public boolean clearCache() {
+        return ragService.clearCache();
+    }
+
     // Получение статистики
     public JSONObject getStatistics() {
         JSONObject stats = ragService.getStatistics();
@@ -189,6 +216,8 @@ public class AssistantService {
         stats.put("llm_model", getCurrentModel());
         stats.put("embedding_model", getEmbeddingModel());
         stats.put("speech_enabled", speechEnabled);
+        stats.put("use_chat_mode", isUseChatMode());
+        stats.put("use_cache", isUseCache());
 
         return stats;
     }
@@ -253,6 +282,11 @@ public class AssistantService {
 
     public JSONObject getModelInfo(String modelName) {
         return ollamaService.getModelInfo(modelName);
+    }
+
+    // Получение информации о кэше
+    public JSONObject getCacheInfo() {
+        return ollamaService.getCacheInfo();
     }
 
     // Очистка истории чата

@@ -19,6 +19,8 @@ public class OllamaService {
     private String ollamaHost;
     private String modelName;
     private Consumer<String> streamingCallback;
+    private boolean useChatMode = true; // По умолчанию используем режим чата
+    private boolean useCache = true; // Использовать кэш по умолчанию
 
     public OllamaService(String ollamaHost, String modelName) {
         this.httpClient = HttpClient.newBuilder()
@@ -35,13 +37,14 @@ public class OllamaService {
         this.streamingCallback = callback;
     }
 
-    // Метод для чата с потоковой передачей
+    // Метод для чата с потоковой передачей и поддержкой кэша
     public String sendChatRequest(List<JSONObject> messages, boolean stream) {
         try {
             JSONObject requestJson = new JSONObject();
             requestJson.put("model", modelName);
             requestJson.put("messages", new JSONArray(messages));
             requestJson.put("stream", stream);
+            requestJson.put("cache", useCache); // Добавляем параметр кэша
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(ollamaHost + "/api/chat"))
@@ -61,13 +64,14 @@ public class OllamaService {
         }
     }
 
-    // Метод для генерации (без истории) с потоковой передачей
+    // Метод для генерации (без истории) с потоковой передачей и поддержкой кэша
     public String sendGenerateRequest(String prompt, boolean stream) {
         try {
             JSONObject requestJson = new JSONObject();
             requestJson.put("model", modelName);
             requestJson.put("prompt", prompt);
             requestJson.put("stream", stream);
+            requestJson.put("cache", useCache); // Добавляем параметр кэша
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(ollamaHost + "/api/generate"))
@@ -87,9 +91,80 @@ public class OllamaService {
         }
     }
 
+    // Универсальный метод для отправки запроса с выбором режима
+    public String sendRequest(String prompt, List<JSONObject> messages, boolean stream) {
+        if (useChatMode && messages != null && !messages.isEmpty()) {
+            return sendChatRequest(messages, stream);
+        } else {
+            return sendGenerateRequest(prompt, stream);
+        }
+    }
+
+    // Метод для очистки кэша модели
+    public boolean clearModelCache() {
+        try {
+            JSONObject requestJson = new JSONObject();
+            requestJson.put("model", modelName);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(ollamaHost + "/api/cache/clear"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestJson.toString()))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            if (response.statusCode() == 200) {
+                System.out.println("Кэш модели " + modelName + " успешно очищен");
+                return true;
+            } else {
+                System.err.println("Ошибка очистки кэша: " + response.statusCode());
+                return false;
+            }
+
+        } catch (Exception e) {
+            System.err.println("Ошибка очистки кэша модели: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // Метод для получения информации о кэше
+    public JSONObject getCacheInfo() {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(ollamaHost + "/api/cache/info"))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            if (response.statusCode() == 200) {
+                return new JSONObject(response.body());
+            } else {
+                System.err.println("Ошибка получения информации о кэше: " + response.statusCode());
+                return null;
+            }
+
+        } catch (Exception e) {
+            System.err.println("Ошибка получения информации о кэше: " + e.getMessage());
+            return null;
+        }
+    }
+
     // Новый метод для генерации с потоковой передачей по умолчанию
     public String sendGenerateRequestWithStream(String prompt) {
         return sendGenerateRequest(prompt, true);
+    }
+
+    // Новый метод для чата с потоковой передачей по умолчанию
+    public String sendChatRequestWithStream(List<JSONObject> messages) {
+        return sendChatRequest(messages, true);
     }
 
     private String sendBlockingRequest(HttpRequest request) throws Exception {
@@ -323,6 +398,25 @@ public class OllamaService {
             System.err.println("Ошибка копирования модели: " + e.getMessage());
             return false;
         }
+    }
+
+    // Новые методы для управления режимами работы
+    public void setUseChatMode(boolean useChatMode) {
+        this.useChatMode = useChatMode;
+        System.out.println("Режим работы изменен на: " + (useChatMode ? "ЧАТ" : "ГЕНЕРАЦИЯ"));
+    }
+
+    public boolean isUseChatMode() {
+        return useChatMode;
+    }
+
+    public void setUseCache(boolean useCache) {
+        this.useCache = useCache;
+        System.out.println("Использование кэша: " + (useCache ? "ВКЛ" : "ВЫКЛ"));
+    }
+
+    public boolean isUseCache() {
+        return useCache;
     }
 
     public void setModel(String modelName) {
