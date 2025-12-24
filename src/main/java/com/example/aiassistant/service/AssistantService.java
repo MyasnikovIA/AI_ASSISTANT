@@ -83,12 +83,6 @@ public class AssistantService {
             chatHistory.clear();
             chatHistory.addAll(newHistory);
         }
-
-        // Озвучиваем ответ, если включена озвучка
-        if (speechEnabled) {
-            speakAnswer(answer);
-        }
-
         return answer;
     }
 
