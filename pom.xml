@@ -15,15 +15,7 @@
     </properties>
 
 
-
     <dependencies>
-        <!-- JSON обработка -->
-        <dependency>
-            <groupId>org.json</groupId>
-            <artifactId>json</artifactId>
-            <version>20231013</version>
-        </dependency>
-
         <!-- Логирование -->
         <dependency>
             <groupId>org.slf4j</groupId>
